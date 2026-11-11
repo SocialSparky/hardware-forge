@@ -1,0 +1,11 @@
+services:
+  hardware-forge:
+    build: .
+    container_name: hardware-forge
+    restart: unless-stopped
+    ports:
+      - "8095:8095"
+    volumes:
+      - ./generators:/generators
+      - ./output:/output
+      - "/media/lucas/NewPlex/3d Prints:/library"

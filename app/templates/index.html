@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Hardware Forge - Offline 3D Part & Kit Generator</title>
+<script src="/static/js/three.min.js"></script>
+<script src="/static/js/OrbitControls.js"></script>
+<script src="/static/js/STLLoader.js"></script>
+<style>
+  :root {
+    --bg: #121418; --panel: #1c2026; --border: #2e3440;
+    --accent: #3b82f6; --accent-hover: #2563eb; --success: #10b981;
+    --amber: #f59e0b; --text: #e5e7eb; --muted: #9ca3af;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+  body { display: flex; height: 100vh; background: var(--bg); color: var(--text); overflow: hidden; }
+  
+  #sidebar {
+    width: 440px; background: var(--panel); border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; height: 100vh; z-index: 10;
+  }
+  header { padding: 12px 18px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+  header h1 { font-size: 1.15rem; font-weight: 700; color: #fff; }
+  header p { font-size: 0.73rem; color: var(--muted); margin-top: 2px; }
+  
+  .auto-toggle { display: flex; align-items: center; gap: 6px; font-size: 0.76rem; color: var(--muted); cursor: pointer; }
+  .auto-toggle input { accent-color: var(--accent); width: 15px; height: 15px; cursor: pointer; }
+
+  .section { padding: 10px 18px; border-bottom: 1px solid var(--border); background: #171a20; }
+  label { display: block; font-size: 0.79rem; font-weight: 600; margin-bottom: 4px; color: var(--text); }
+  select, input[type="number"], input[type="text"] {
+    width: 100%; padding: 7px 9px; background: var(--bg); border: 1px solid var(--border);
+    color: var(--text); border-radius: 6px; font-size: 0.85rem; cursor: pointer;
+  }
+  input[type="number"], input[type="text"] { cursor: text; }
+  select:focus, input:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+  
+  .custom-num-wrap {
+    margin-top: 6px; display: none; align-items: center; gap: 6px;
+    background: rgba(59, 130, 246, 0.12); padding: 5px 8px; border-radius: 6px; border: 1px dashed var(--accent);
+  }
+  .custom-num-wrap span { font-size: 0.74rem; color: #93c5fd; white-space: nowrap; font-weight: 600; }
+  .custom-num-input {
+    flex: 1; padding: 5px 7px !important; font-variant-numeric: tabular-nums;
+    background: var(--bg) !important; border: 1px solid var(--accent) !important;
+  }
+
+  #tool-ref-card {
+    margin: 8px 18px 0 18px; padding: 9px 11px; background: rgba(30, 58, 138, 0.35);
+    border: 1px solid #3b82f6; border-radius: 6px; font-size: 0.76rem; line-height: 1.4;
+    color: #dbeafe; display: none;
+  }
+  #tool-ref-card strong { color: #60a5fa; }
+  .companion-bar {
+    display: flex; gap: 6px; margin-top: 7px; padding-top: 7px; border-top: 1px solid rgba(59,130,246,0.35);
+  }
+  .btn-mini {
+    flex: 1; padding: 5px 7px; font-size: 0.72rem; background: #1e3a8a; color: #dbeafe;
+    border: 1px solid #3b82f6; border-radius: 4px; cursor: pointer; font-weight: 600;
+  }
+  .btn-mini:hover { background: #2563eb; color: #fff; }
+
+  #controls-container { flex: 1; overflow-y: auto; padding: 8px 18px 20px 18px; }
+  .group-title {
+    font-size: 0.71rem; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--accent); margin: 14px 0 7px 0; font-weight: 700; border-bottom: 1px solid var(--border); padding-bottom: 3px;
+  }
+  .control-item { margin-bottom: 10px; }
+  .slider-row { display: flex; align-items: center; gap: 10px; }
+  .slider-row input[type="range"] { flex: 1; accent-color: var(--accent); cursor: pointer; }
+  .slider-val {
+    width: 78px !important; text-align: right; font-variant-numeric: tabular-nums;
+    font-size: 0.85rem; background: var(--bg); padding: 5px 6px !important;
+  }
+
+  #footer { padding: 12px 18px; border-top: 1px solid var(--border); background: #16191e; display: flex; flex-direction: column; gap: 7px; }
+  button {
+    width: 100%; padding: 8px 12px; border: none; border-radius: 6px;
+    font-weight: 600; font-size: 0.84rem; cursor: pointer; transition: 0.15s;
+  }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-primary:hover { background: var(--accent-hover); }
+  .btn-row { display: flex; gap: 7px; align-items: center; }
+  .btn-secondary { background: #2e3440; color: white; }
+  .btn-secondary:hover { background: #3b4252; }
+  .btn-success { background: var(--success); color: #052e16; }
+  .btn-success:hover { filter: brightness(1.1); }
+  .btn-amber { background: var(--amber); color: #1c1917; }
+  .btn-amber:hover { filter: brightness(1.1); }
+
+  /* Right 3D Viewport & Floating Kit Cart Panel */
+  #viewport { flex: 1; position: relative; }
+  #status-bar {
+    position: absolute; top: 16px; left: 16px; background: rgba(28,32,38,0.92);
+    padding: 8px 14px; border-radius: 6px; border: 1px solid var(--border);
+    font-size: 0.84rem; pointer-events: none; max-width: 55%;
+  }
+  #spec-banner {
+    position: absolute; bottom: 16px; left: 16px; background: rgba(23, 37, 84, 0.92);
+    padding: 10px 14px; border-radius: 6px; border: 1px solid #3b82f6;
+    font-size: 0.82rem; color: #dbeafe; font-weight: 600; display: none; max-width: 65%;
+  }
+  #dimensions-box {
+    position: absolute; bottom: 16px; right: 16px; background: rgba(28,32,38,0.92);
+    padding: 10px 14px; border-radius: 6px; border: 1px solid var(--border);
+    font-size: 0.82rem; color: var(--text); font-variant-numeric: tabular-nums;
+  }
+
+  /* Floating Kit Cart Panel */
+  #kit-panel {
+    position: absolute; top: 16px; right: 16px; width: 350px;
+    background: rgba(28, 32, 38, 0.96); border: 1px solid var(--border);
+    border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    display: flex; flex-direction: column; max-height: calc(100vh - 90px); z-index: 20;
+  }
+  .kit-header {
+    padding: 10px 14px; border-bottom: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: center;
+    background: #171a20; border-radius: 8px 8px 0 0; cursor: pointer;
+  }
+  .kit-header h2 { font-size: 0.92rem; color: #fff; display: flex; align-items: center; gap: 8px; }
+  .badge {
+    background: var(--amber); color: #1c1917; font-size: 0.74rem;
+    padding: 2px 7px; border-radius: 99px; font-weight: 800;
+  }
+  #kit-body { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
+  #kit-items-list { display: flex; flex-direction: column; gap: 6px; max-height: 240px; overflow-y: auto; }
+  .kit-item-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    background: var(--bg); padding: 7px 9px; border-radius: 6px; border: 1px solid var(--border);
+    font-size: 0.78rem;
+  }
+  .kit-item-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); font-weight: 500; }
+  .kit-qty-input { width: 48px !important; padding: 3px 5px !important; text-align: center; font-size: 0.78rem !important; }
+  .btn-del { width: auto; padding: 3px 7px; background: #7f1d1d; color: #fecaca; font-size: 0.74rem; border-radius: 4px; }
+  .btn-del:hover { background: #dc2626; color: #fff; }
+  .kit-empty { font-size: 0.78rem; color: var(--muted); text-align: center; padding: 12px 0; }
+</style>
+</head>
+<body>
+
+<div id="sidebar">
+  <header>
+    <div>
+      <h1>⚙️ Hardware Forge</h1>
+      <p>Offline Parametric Part & Kit Builder</p>
+    </div>
+    <label class="auto-toggle" title="Automatically re-render when any dropdown or custom number changes">
+      <input type="checkbox" id="auto-render" checked>
+      <span>Auto-Preview</span>
+    </label>
+  </header>
+
+  <div class="section">
+    <label for="generator-select">1. Select Hardware Category</label>
+    <select id="generator-select" onchange="onGeneratorChange()"></select>
+  </div>
+
+  <div id="tool-ref-card"></div>
+
+  <div id="controls-container"></div>
+
+  <div id="footer">
+    <input type="text" id="custom-name" placeholder="Optional part/kit name (auto-named if blank)">
+    <div class="btn-row">
+      <button class="btn-primary" style="flex:1.2" onclick="renderPart()">🔄 Refresh Single Part</button>
+      <div style="display:flex; align-items:center; gap:4px; background:#121418; padding:3px 6px; border-radius:6px; border:1px solid var(--border);">
+        <span style="font-size:0.75rem; color:var(--muted);">Qty:</span>
+        <input type="number" id="add-qty" value="1" min="1" max="100" style="width:48px; padding:4px; text-align:center;">
+      </div>
+      <button class="btn-amber" style="flex:1.1" onclick="addCurrentToKit()">➕ Add to Kit</button>
+    </div>
+    <div class="btn-row">
+      <button class="btn-secondary" onclick="downloadSTL()">⬇️ Single STL</button>
+      <button class="btn-success" onclick="saveToLibrary()">📁 Save Single Part</button>
+    </div>
+  </div>
+</div>
+
+<div id="viewport">
+  <div id="status-bar">Ready</div>
+
+  <!-- Floating Build Plate Kit Cart -->
+  <div id="kit-panel">
+    <div class="kit-header" onclick="toggleKitBody()">
+      <h2>🛒 Build Plate Kit Cart <span class="badge" id="kit-count-badge">0 pcs</span></h2>
+      <span id="kit-collapse-icon" style="color:var(--muted); font-size:0.8rem;">▼</span>
+    </div>
+    <div id="kit-body">
+      <div id="kit-items-list">
+        <div class="kit-empty">Your kit cart is empty.<br>Add bolts, nuts, washers, or tools to pack them onto a unified build plate!</div>
+      </div>
+
+      <div style="display:flex; gap:8px; align-items:center;">
+        <label style="margin:0; white-space:nowrap; font-size:0.75rem; color:var(--muted);">Part Gap (mm):</label>
+        <input type="number" id="kit-spacing" value="4" min="1" max="30" step="0.5" style="width:65px; padding:4px 6px;">
+        <input type="text" id="kit-name" placeholder="Kit Name (e.g. M6_Mounting_Kit)" style="flex:1; padding:4px 8px; font-size:0.78rem;">
+      </div>
+
+      <button class="btn-primary" onclick="renderKitPlate()">🖥️ Arrange & Preview Full Kit on Bed</button>
+      <div class="btn-row">
+        <button class="btn-secondary" onclick="downloadKitSTL()" title="Download all kit items pre-arranged in a single STL file">⬇️ Combined .STL</button>
+        <button class="btn-secondary" onclick="downloadKitZIP()" title="Download a ZIP containing each separate STL file">📦 .ZIP Pack</button>
+      </div>
+      <div class="btn-row">
+        <button class="btn-success" style="flex:2" onclick="saveKitToLibrary()">📁 Save Kit to Print Library</button>
+        <button class="btn-del" style="flex:0.7; padding:8px;" onclick="clearKitCart()">🗑️ Clear</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="spec-banner"></div>
+  <div id="dimensions-box">Dimensions: --</div>
+</div>
+
+<script>
+let generators = [];
+let currentGenerator = null;
+let lastFilename = "part.stl";
+let lastKitFilename = "Hardware_Kit.stl";
+let kitCart = [];
+let scene, camera, renderer, controls, currentMesh;
+let renderTimeout = null;
+
+const STD_SPECS = {
+  "M1.6":   { s_hex: "1.5 mm", s_num: 1.5, b_hex: "1.3 mm", torx: "T6",  ph: "PH0", af: "3.2 mm",  af_num: 3.2,  slot: "0.4 mm", nut_h: "1.3 mm" },
+  "M2":     { s_hex: "1.5 mm", s_num: 1.5, b_hex: "1.3 mm", torx: "T6",  ph: "PH0", af: "4.0 mm",  af_num: 4.0,  slot: "0.5 mm", nut_h: "1.6 mm" },
+  "M2.5":   { s_hex: "2.0 mm", s_num: 2.0, b_hex: "1.5 mm", torx: "T8",  ph: "PH1", af: "5.0 mm",  af_num: 5.0,  slot: "0.6 mm", nut_h: "2.0 mm" },
+  "M3":     { s_hex: "2.5 mm", s_num: 2.5, b_hex: "2.0 mm", torx: "T10", ph: "PH1", af: "5.5 mm",  af_num: 5.5,  slot: "0.8 mm", nut_h: "2.4 mm" },
+  "M4":     { s_hex: "3.0 mm", s_num: 3.0, b_hex: "2.5 mm", torx: "T20", ph: "PH2", af: "7.0 mm",  af_num: 7.0,  slot: "1.0 mm", nut_h: "3.2 mm" },
+  "M5":     { s_hex: "4.0 mm", s_num: 4.0, b_hex: "3.0 mm", torx: "T25", ph: "PH2", af: "8.0 mm",  af_num: 8.0,  slot: "1.2 mm", nut_h: "4.0 mm" },
+  "M6":     { s_hex: "5.0 mm", s_num: 5.0, b_hex: "4.0 mm", torx: "T30", ph: "PH3", af: "10.0 mm", af_num: 10.0, slot: "1.6 mm", nut_h: "5.0 mm" },
+  "M8":     { s_hex: "6.0 mm", s_num: 6.0, b_hex: "5.0 mm", torx: "T45", ph: "PH3", af: "13.0 mm", af_num: 13.0, slot: "2.0 mm", nut_h: "6.5 mm" },
+  "M10":    { s_hex: "8.0 mm", s_num: 8.0, b_hex: "6.0 mm", torx: "T50", ph: "PH4", af: "16.0 mm", af_num: 16.0, slot: "2.5 mm", nut_h: "8.0 mm" },
+  "M12":    { s_hex: "10.0 mm",s_num: 10.0,b_hex: "8.0 mm", torx: "T55", ph: "PH4", af: "18.0 mm", af_num: 18.0, slot: "3.0 mm", nut_h: "10.0 mm" },
+  "M14":    { s_hex: "12.0 mm",s_num: 12.0,b_hex: "10.0 mm",torx: "T60", ph: "PH4", af: "21.0 mm", af_num: 21.0, slot: "3.0 mm", nut_h: "11.0 mm" },
+  "M16":    { s_hex: "14.0 mm",s_num: 14.0,b_hex: "10.0 mm",torx: "T60", ph: "PH4", af: "24.0 mm", af_num: 24.0, slot: "3.5 mm", nut_h: "13.0 mm" },
+  "M20":    { s_hex: "17.0 mm",s_num: 17.0,b_hex: "12.0 mm",torx: "T60", ph: "PH4", af: "30.0 mm", af_num: 30.0, slot: "4.0 mm", nut_h: "16.0 mm" },
+  "#2-56":  { s_hex: "5/64\" (1.98mm)", s_num: 1.9844, b_hex: "1/16\" (1.59mm)", torx: "T8",  ph: "PH0", af: "3/16\" (4.76mm)",  af_num: 4.7625, slot: "0.6 mm", nut_h: "1.6 mm" },
+  "#4-40":  { s_hex: "3/32\" (2.38mm)", s_num: 2.38125,b_hex: "1/16\" (1.59mm)", torx: "T10", ph: "PH1", af: "1/4\" (6.35mm)",   af_num: 6.35,   slot: "0.8 mm", nut_h: "2.4 mm (3/32\")" },
+  "#6-32":  { s_hex: "7/64\" (2.78mm)", s_num: 2.7781, b_hex: "5/64\" (1.98mm)", torx: "T15", ph: "PH2", af: "5/16\" (7.94mm)",  af_num: 7.9375, slot: "1.0 mm", nut_h: "2.8 mm (7/64\")" },
+  "#8-32":  { s_hex: "9/64\" (3.57mm)", s_num: 3.5719, b_hex: "3/32\" (2.38mm)", torx: "T20", ph: "PH2", af: "11/32\" (8.73mm)", af_num: 8.73125,slot: "1.2 mm", nut_h: "3.2 mm (1/8\")" },
+  "#10-24": { s_hex: "5/32\" (3.97mm)", s_num: 3.96875,b_hex: "1/8\" (3.18mm)",  torx: "T25", ph: "PH2", af: "3/8\" (9.53mm)",   af_num: 9.525,  slot: "1.2 mm", nut_h: "3.2 mm (1/8\")" },
+  "#10-32": { s_hex: "5/32\" (3.97mm)", s_num: 3.96875,b_hex: "1/8\" (3.18mm)",  torx: "T25", ph: "PH2", af: "3/8\" (9.53mm)",   af_num: 9.525,  slot: "1.2 mm", nut_h: "3.2 mm (1/8\")" },
+  "1/4-20": { s_hex: "3/16\" (4.76mm)", s_num: 4.7625, b_hex: "5/32\" (3.97mm)", torx: "T30", ph: "PH3", af: "7/16\" (11.11mm)", af_num: 11.1125,slot: "1.6 mm", nut_h: "5.6 mm (7/32\")" },
+  "1/4-28": { s_hex: "3/16\" (4.76mm)", s_num: 4.7625, b_hex: "5/32\" (3.97mm)", torx: "T30", ph: "PH3", af: "7/16\" (11.11mm)", af_num: 11.1125,slot: "1.6 mm", nut_h: "5.6 mm (7/32\")" },
+  "5/16-18":{ s_hex: "1/4\" (6.35mm)",  s_num: 6.35,   b_hex: "3/16\" (4.76mm)", torx: "T40", ph: "PH3", af: "1/2\" (12.70mm)",  af_num: 12.7,   slot: "2.0 mm", nut_h: "6.7 mm (17/64\")" },
+  "5/16-24":{ s_hex: "1/4\" (6.35mm)",  s_num: 6.35,   b_hex: "3/16\" (4.76mm)", torx: "T40", ph: "PH3", af: "1/2\" (12.70mm)",  af_num: 12.7,   slot: "2.0 mm", nut_h: "6.7 mm (17/64\")" },
+  "3/8-16": { s_hex: "5/16\" (7.94mm)", s_num: 7.9375, b_hex: "7/32\" (5.56mm)", torx: "T45", ph: "PH4", af: "9/16\" (14.29mm)", af_num: 14.2875,slot: "2.5 mm", nut_h: "8.3 mm (21/64\")" },
+  "3/8-24": { s_hex: "5/16\" (7.94mm)", s_num: 7.9375, b_hex: "7/32\" (5.56mm)", torx: "T45", ph: "PH4", af: "9/16\" (14.29mm)", af_num: 14.2875,slot: "2.5 mm", nut_h: "8.3 mm (21/64\")" },
+  "7/16-14":{ s_hex: "3/8\" (9.53mm)",  s_num: 9.525,  b_hex: "1/4\" (6.35mm)",  torx: "T50", ph: "PH4", af: "5/8\" (15.88mm)",  af_num: 15.875, slot: "2.5 mm", nut_h: "9.5 mm (3/8\")" },
+  "1/2-13": { s_hex: "3/8\" (9.53mm)",  s_num: 9.525,  b_hex: "5/16\" (7.94mm)", torx: "T55", ph: "PH4", af: "3/4\" (19.05mm)",  af_num: 19.05,  slot: "3.0 mm", nut_h: "11.1 mm (7/16\")" },
+  "1/2-20": { s_hex: "3/8\" (9.53mm)",  s_num: 9.525,  b_hex: "5/16\" (7.94mm)", torx: "T55", ph: "PH4", af: "3/4\" (19.05mm)",  af_num: 19.05,  slot: "3.0 mm", nut_h: "11.1 mm (7/16\")" },
+  "5/8-11": { s_hex: "1/2\" (12.70mm)", s_num: 12.7,   b_hex: "3/8\" (9.53mm)",  torx: "T60", ph: "PH4", af: "15/16\" (23.81mm)",af_num: 23.8125,slot: "3.5 mm", nut_h: "13.9 mm (35/64\")" },
+  "3/4-10": { s_hex: "5/8\" (15.88mm)", s_num: 15.875, b_hex: "1/2\" (12.70mm)", torx: "T60", ph: "PH4", af: "1-1/8\" (28.58mm)",af_num: 28.575, slot: "4.0 mm", nut_h: "16.3 mm (41/64\")" }
+};
+
+function isNumericCapableSelect(p) {
+  if (p.type === "bool" || !p.options) return false;
+  if (p.type === "number") return true;
+  return p.options.some(o => {
+    const v = String(o.value).trim();
+    return v !== "" && v !== "auto" && v !== "nut_match" && !isNaN(Number(v));
+  });
+}
+
+function getNumericFallback(p) {
+  if (!isNaN(Number(p.default))) return Number(p.default);
+  if (p.options) {
+    const numOpt = p.options.find(o => !isNaN(Number(o.value)));
+    if (numOpt) return Number(numOpt.value);
+  }
+  return 1.0;
+}
+
+function updateAutoLabelsAndCard() {
+  const card = document.getElementById("tool-ref-card");
+  if (!currentGenerator || currentGenerator.filename !== "01_fasteners.scad") {
+    card.style.display = "none";
+    return;
+  }
+
+  const vals = collectParams();
+  const thread = (vals.unit_system === "metric") ? vals.metric_size : vals.imperial_size;
+  const spec = STD_SPECS[thread];
+  if (!spec) {
+    card.style.display = "none";
+    return;
+  }
+
+  const isSocket = (vals.head_type === "socket");
+  const stdHex = isSocket ? spec.s_hex : spec.b_hex;
+
+  const setAutoText = (paramName, text) => {
+    const sel = document.querySelector(`select[data-param="${paramName}"]`);
+    if (!sel) return;
+    const autoOpt = Array.from(sel.options).find(o => o.value === "auto");
+    if (autoOpt) autoOpt.textContent = text;
+  };
+
+  setAutoText("metric_hex_head_af",   `Auto — Standard for ${thread}: ${spec.af} Wrench`);
+  setAutoText("imperial_hex_head_af", `Auto — Standard for ${thread}: ${spec.af} Wrench`);
+  setAutoText("metric_nut_af",        `Auto — Standard for ${thread}: ${spec.af} Wrench`);
+  setAutoText("imperial_nut_af",      `Auto — Standard for ${thread}: ${spec.af} Wrench`);
+  setAutoText("metric_allen_size",    `Auto — Standard for ${thread} (${vals.head_type}): ${stdHex} Allen`);
+  setAutoText("imperial_allen_size",  `Auto — Standard for ${thread} (${vals.head_type}): ${stdHex} Allen`);
+  setAutoText("torx_drive_size",      `Auto — Standard for ${thread}: ${spec.torx} Torx Star`);
+  setAutoText("phillips_drive_size",  `Auto — Standard for ${thread}: ${spec.ph} Phillips`);
+  setAutoText("slot_width_override",  `Auto — Standard for ${thread}: ${spec.slot} Slot Blade`);
+
+  const tlSel = document.querySelector('select[data-param="thread_len"]');
+  if (tlSel) {
+    const nmOpt = Array.from(tlSel.options).find(o => o.value === "nut_match");
+    if (nmOpt) nmOpt.textContent = `Match Standard ${thread} Nut Thickness (${spec.nut_h} — Flush Back)`;
+  }
+
+  card.style.display = "block";
+  card.innerHTML = `
+    <div><strong>📐 Standard Specs for ${thread}:</strong></div>
+    <div>• <strong>Wrench:</strong> ${spec.af} &nbsp;|&nbsp; <strong>Std Nut Height:</strong> ${spec.nut_h}</div>
+    <div>• <strong>Allen:</strong> ${spec.s_hex} (Socket) &nbsp;|&nbsp; ${spec.b_hex} (Button/Flat) &nbsp;|&nbsp; <strong>Torx:</strong> ${spec.torx}</div>
+    <div class="companion-bar">
+      <button class="btn-mini" onclick="quickAddCompanion('nut')">➕ Add Matching ${thread} Nut</button>
+      <button class="btn-mini" onclick="quickAddCompanion('washer')">➕ Add ${thread} Washer</button>
+      <button class="btn-mini" onclick="quickAddCompanion('wrench')">➕ Add ${spec.af.split(' ')[0]} Wrench</button>
+    </div>
+  `;
+}
+
+// 1-Click Companion Adder (Adds matching Nut, Washer, or Wrench straight to Kit Cart!)
+function quickAddCompanion(type) {
+  const vals = collectParams();
+  const qty = parseInt(document.getElementById("add-qty").value) || 1;
+  const thread = (vals.unit_system === "metric") ? vals.metric_size : vals.imperial_size;
+  const spec = STD_SPECS[thread];
+
+  if (type === "nut" || type === "washer") {
+    const compParams = Object.assign({}, vals, { part_type: type });
+    const label = `${thread}_${type === 'nut' ? 'Hex_Nut' : 'Flat_Washer'}`;
+    pushToKitCart("01_fasteners.scad", compParams, qty, label);
+    setStatus(`🛒 Added ${qty}× ${label} to Kit Cart!`, "#10b981");
+  } else if (type === "wrench" && spec) {
+    const toolGen = generators.find(g => g.filename === "05_install_tools.scad");
+    if (!toolGen) return;
+    const toolParams = {};
+    toolGen.parameters.forEach(p => toolParams[p.name] = p.default);
+    toolParams.tool_category = "wrench_combo";
+    toolParams.unit_system = vals.unit_system;
+    toolParams.printer_slop = vals.printer_slop || 0.16;
+    if (vals.unit_system === "metric") toolParams.metric_wrench_af = spec.af_num;
+    else toolParams.imperial_wrench_af = spec.af_num;
+
+    const label = `Wrench_${spec.af.split(' ')[0].replace(/[^a-zA-Z0-9\-\.]/g, '')}_for_${thread}`;
+    pushToKitCart("05_install_tools.scad", toolParams, 1, label);
+    setStatus(`🛒 Added Matching ${spec.af} Wrench to Kit Cart!`, "#10b981");
+  }
+}
+
+function summarizeCurrentItem(genFilename, params) {
+  const custom = document.getElementById("custom-name").value.trim();
+  if (custom) return custom;
+  if (genFilename === "01_fasteners.scad") {
+    const t = params.unit_system === "metric" ? params.metric_size : params.imperial_size;
+    if (params.part_type === "bolt") return `${t}×${params.length}mm_${params.head_type}_${params.drive_type}_Bolt`;
+    if (params.part_type === "nut") return `${t}_${params.nut_style}_Nut`;
+    if (params.part_type === "washer") return `${t}_Washer`;
+    return `${t}×${params.length}mm_Rod`;
+  }
+  if (genFilename === "02_gears.scad") return `${params.gear_style}_Gear_${params.teeth}T_M${params.mod}`;
+  if (genFilename === "03_bearings.scad") return `Bearing_${params.preset}_${params.bearing_type}`;
+  if (genFilename === "04_spacers_standoffs.scad") {
+    const t = params.unit_system === "metric" ? params.metric_spec : params.imperial_spec;
+    return `${params.spacer_type}_${t}×${params.height}mm`;
+  }
+  if (genFilename === "05_install_tools.scad") return `Tool_${params.tool_category}_${params.tip_type || ''}`;
+  return genFilename.replace(".scad", "");
+}
+
+function addCurrentToKit() {
+  if (!currentGenerator) return;
+  const params = collectParams();
+  const qty = Math.max(1, parseInt(document.getElementById("add-qty").value) || 1);
+  const label = summarizeCurrentItem(currentGenerator.filename, params);
+  pushToKitCart(currentGenerator.filename, params, qty, label);
+  setStatus(`🛒 Added ${qty}× ${label} to Kit Cart`, "#f59e0b");
+}
+
+function pushToKitCart(generator, params, qty, label) {
+  const paramKey = JSON.stringify({ generator, params });
+  const existing = kitCart.find(i => i.key === paramKey);
+  if (existing) {
+    existing.qty += qty;
+  } else {
+    kitCart.push({ key: paramKey, generator, params, qty, label });
+  }
+  renderKitCartList();
+}
+
+function renderKitCartList() {
+  const listEl = document.getElementById("kit-items-list");
+  const badgeEl = document.getElementById("kit-count-badge");
+  const totalPcs = kitCart.reduce((acc, item) => acc + item.qty, 0);
+  badgeEl.textContent = `${totalPcs} pcs`;
+
+  if (kitCart.length === 0) {
+    listEl.innerHTML = `<div class="kit-empty">Your kit cart is empty.<br>Add bolts, nuts, washers, or tools to pack them onto a unified build plate!</div>`;
+    return;
+  }
+
+  listEl.innerHTML = kitCart.map((item, idx) => `
+    <div class="kit-item-row">
+      <div class="kit-item-title" title="${item.label}">${item.label}</div>
+      <input type="number" class="kit-qty-input" min="1" max="100" value="${item.qty}"
+        onchange="updateKitItemQty(${idx}, this.value)">
+      <button class="btn-del" onclick="removeKitItem(${idx})" title="Remove item">✕</button>
+    </div>
+  `).join("");
+}
+
+function updateKitItemQty(idx, val) {
+  const q = parseInt(val);
+  if (q > 0) kitCart[idx].qty = q;
+  renderKitCartList();
+}
+
+function removeKitItem(idx) {
+  kitCart.splice(idx, 1);
+  renderKitCartList();
+}
+
+function clearKitCart() {
+  kitCart = [];
+  renderKitCartList();
+  renderPart();
+}
+
+function toggleKitBody() {
+  const b = document.getElementById("kit-body");
+  const icon = document.getElementById("kit-collapse-icon");
+  if (b.style.display === "none") {
+    b.style.display = "flex";
+    icon.textContent = "▼";
+  } else {
+    b.style.display = "none";
+    icon.textContent = "◀";
+  }
+}
+
+async function renderKitPlate() {
+  if (kitCart.length === 0) {
+    setStatus("⚠️ Add at least one part to the Kit Cart first!", "#f59e0b");
+    return;
+  }
+  setStatus("⏳ Rendering & packing all Kit items onto build plate...", "#f59e0b");
+
+  const payload = {
+    items: kitCart,
+    spacing: parseFloat(document.getElementById("kit-spacing").value) || 4.0,
+    kit_name: document.getElementById("kit-name").value || "Hardware_Kit"
+  };
+
+  try {
+    const res = await fetch("/api/render_kit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Kit render failed");
+
+    lastKitFilename = data.suggested_filename;
+    loadSTLIntoViewer(data.preview_url);
+    setStatus(`✅ Kit Ready (${data.total_parts} parts packed): ${lastKitFilename}`, "#10b981");
+
+    const specBanner = document.getElementById("spec-banner");
+    specBanner.textContent = "🛒 " + data.specs;
+    specBanner.style.display = "block";
+  } catch (err) {
+    setStatus(`❌ ${err.message}`, "#ef4444");
+  }
+}
+
+async function downloadKitSTL() {
+  if (kitCart.length === 0) return;
+  await renderKitPlate();
+  const kName = (document.getElementById("kit-name").value.trim() || "Hardware_Kit").replace(/[^a-zA-Z0-9_\-]/g, "_") + ".stl";
+  window.location.href = `/api/kit_preview.stl?download_name=${encodeURIComponent(kName)}`;
+}
+
+async function downloadKitZIP() {
+  if (kitCart.length === 0) return;
+  await renderKitPlate();
+  const kName = (document.getElementById("kit-name").value.trim() || "Hardware_Kit").replace(/[^a-zA-Z0-9_\-]/g, "_") + "_Pack.zip";
+  window.location.href = `/api/kit_bundle.zip?download_name=${encodeURIComponent(kName)}`;
+}
+
+async function saveKitToLibrary() {
+  if (kitCart.length === 0) {
+    setStatus("⚠️ Add items to your Kit Cart before saving!", "#f59e0b");
+    return;
+  }
+  setStatus("⏳ Building & saving Kit to Print Library...", "#f59e0b");
+  const payload = {
+    items: kitCart,
+    spacing: parseFloat(document.getElementById("kit-spacing").value) || 4.0,
+    kit_name: document.getElementById("kit-name").value || "Hardware_Kit"
+  };
+  const res = await fetch("/api/save_kit_to_library", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  const data = await res.json();
+  if (res.ok) {
+    setStatus(`📁 Saved Kit: ${data.path}`, "#10b981");
+  } else {
+    setStatus(`❌ Save Error: ${data.detail}`, "#ef4444");
+  }
+}
+
+function initThree() {
+  const container = document.getElementById("viewport");
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x121418);
+
+  camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.05, 3000);
+  camera.position.set(55, -80, 55);
+  camera.up.set(0, 0, 1);
+
+  renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(container.clientWidth, container.clientHeight);
+  container.appendChild(renderer.domElement);
+
+  controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+
+  const grid = new THREE.GridHelper(200, 20, 0x3b82f6, 0x2e3440);
+  grid.rotation.x = Math.PI / 2;
+  scene.add(grid);
+
+  scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+
+  const dirLight1 = new THREE.DirectionalLight(0xffffff, 0.85);
+  dirLight1.position.set(60, -80, 100);
+  scene.add(dirLight1);
+
+  const dirLight2 = new THREE.DirectionalLight(0x90b4ff, 0.45);
+  dirLight2.position.set(-60, 80, -40);
+  scene.add(dirLight2);
+
+  window.addEventListener("resize", () => {
+    camera.aspect = container.clientWidth / container.clientHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(container.clientWidth, container.clientHeight);
+  });
+
+  animate();
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene, camera);
+}
+
+async function loadGenerators() {
+  const res = await fetch("/api/generators");
+  generators = await res.json();
+  const sel = document.getElementById("generator-select");
+  sel.innerHTML = "";
+  generators.forEach((g, idx) => {
+    const opt = document.createElement("option");
+    opt.value = idx;
+    opt.textContent = g.title;
+    sel.appendChild(opt);
+  });
+  if (generators.length > 0) onGeneratorChange();
+}
+
+function onSelectChanged(selEl) {
+  const paramName = selEl.dataset.param;
+  const customWrap = document.getElementById(`custom-wrap-${paramName}`);
+  if (customWrap) {
+    if (selEl.value === "__custom__") {
+      customWrap.style.display = "flex";
+      const inp = customWrap.querySelector("input");
+      if (inp) inp.focus();
+    } else {
+      customWrap.style.display = "none";
+      const inp = customWrap.querySelector("input");
+      if (inp && !isNaN(Number(selEl.value))) {
+        inp.value = selEl.value;
+      }
+    }
+  }
+  onControlUpdated();
+}
+
+function onControlUpdated() {
+  updateVisibility();
+  updateAutoLabelsAndCard();
+  if (document.getElementById("auto-render").checked) {
+    clearTimeout(renderTimeout);
+    renderTimeout = setTimeout(() => renderPart(), 180);
+  }
+}
+
+function onGeneratorChange() {
+  const idx = document.getElementById("generator-select").value;
+  currentGenerator = generators[idx];
+  const container = document.getElementById("controls-container");
+  container.innerHTML = "";
+
+  let lastGroup = "";
+  currentGenerator.parameters.forEach(p => {
+    if (p.group !== lastGroup) {
+      const gTitle = document.createElement("div");
+      gTitle.className = "group-title";
+      gTitle.dataset.group = p.group;
+      gTitle.textContent = p.group;
+      container.appendChild(gTitle);
+      lastGroup = p.group;
+    }
+
+    const wrap = document.createElement("div");
+    wrap.className = "control-item";
+    wrap.id = `wrap-${p.name}`;
+    wrap.dataset.groupItem = p.group;
+
+    if (p.ui === "select") {
+      const allowCustomNum = isNumericCapableSelect(p);
+      let opts = p.options.map(o => {
+        const isSel = String(o.value) === String(p.default) ? "selected" : "";
+        return `<option value="${o.value}" ${isSel}>${o.label}</option>`;
+      }).join("");
+
+      if (allowCustomNum) {
+        opts += `<option value="__custom__">✏️ Custom Exact Value (Type Below)...</option>`;
+      }
+
+      const fallbackVal = getNumericFallback(p);
+      wrap.innerHTML = `
+        <label>${p.label}</label>
+        <select data-param="${p.name}" onchange="onSelectChanged(this)">${opts}</select>
+        ${allowCustomNum ? `
+          <div class="custom-num-wrap" id="custom-wrap-${p.name}">
+            <span>Exact:</span>
+            <input type="text" class="custom-num-input" data-custom-for="${p.name}" value="${fallbackVal}" placeholder="e.g. 87 or 7/8" oninput="onControlUpdated()">
+            <select class="custom-unit-select" data-unit-for="${p.name}" onchange="onControlUpdated()" style="width:88px; padding:4px 5px; font-size:0.76rem;">
+              <option value="mm">mm</option>
+              <option value="in">in (SAE)</option>
+            </select>
+            <span class="conv-hint" id="conv-hint-${p.name}" style="font-size:0.71rem; color:#10b981;"></span>
+          </div>
+        ` : ""}
+      `;
+    } else if (p.ui === "slider") {
+      wrap.innerHTML = `
+        <label>${p.label}</label>
+        <div class="slider-row">
+          <input type="range" data-param="${p.name}" min="${p.min}" max="${p.max}" step="${p.step}" value="${p.default}"
+            oninput="this.nextElementSibling.value = this.value" onchange="onControlUpdated()">
+          <input type="number" class="slider-val" step="any" value="${p.default}"
+            oninput="this.previousElementSibling.value = this.value; onControlUpdated()">
+        </div>`;
+    } else {
+      wrap.innerHTML = `
+        <label>${p.label}</label>
+        <input type="${p.type === 'number' ? 'number' : 'text'}" step="any" data-param="${p.name}" value="${p.default}" oninput="onControlUpdated()">`;
+    }
+    container.appendChild(wrap);
+  });
+
+  updateVisibility();
+  updateAutoLabelsAndCard();
+  renderPart();
+}
+
+function collectParams() {
+  const params = {};
+  currentGenerator.parameters.forEach(p => {
+    const el = document.querySelector(`[data-param="${p.name}"]`);
+    if (!el) return;
+
+    let rawVal = el.value;
+    if (el.tagName === "SELECT" && rawVal === "__custom__") {
+      const customInp = document.querySelector(`[data-custom-for="${p.name}"]`);
+      const unitSel = document.querySelector(`[data-unit-for="${p.name}"]`);
+      const hintEl = document.getElementById(`conv-hint-${p.name}`);
+      let txt = (customInp ? customInp.value : "1").trim();
+
+      let num = 0;
+      const mixedMatch = txt.match(/^(\d+)[\s\-]+(\d+)\/(\d+)$/);
+      const fracMatch  = txt.match(/^(\d+)\/(\d+)$/);
+      if (mixedMatch) {
+        num = parseFloat(mixedMatch[1]) + (parseFloat(mixedMatch[2]) / parseFloat(mixedMatch[3]));
+      } else if (fracMatch) {
+        num = parseFloat(fracMatch[1]) / parseFloat(fracMatch[2]);
+      } else {
+        num = parseFloat(txt);
+      }
+      if (isNaN(num)) num = 1;
+
+      if (unitSel && unitSel.value === "in") {
+        num = num * 25.4;
+        if (hintEl) hintEl.textContent = `= ${num.toFixed(2)} mm`;
+      } else {
+        if (hintEl) hintEl.textContent = `(${(num / 25.4).toFixed(3)}")`;
+      }
+      rawVal = String(num);
+    } else if (p.ui === "slider") {
+      const numBox = el.nextElementSibling;
+      if (numBox && numBox.value !== "") rawVal = numBox.value;
+    }
+
+    if (p.type === "bool") {
+      params[p.name] = (rawVal === "true" || el.checked === true);
+    } else if (p.type === "number") {
+      const parsed = parseFloat(rawVal);
+      params[p.name] = isNaN(parsed) ? 0.1 : parsed;
+    } else {
+      params[p.name] = String(rawVal);
+    }
+  });
+  return params;
+}
+
+function updateVisibility() {
+  if (!currentGenerator) return;
+  const currentVals = collectParams();
+
+  currentGenerator.parameters.forEach(p => {
+    const wrap = document.getElementById(`wrap-${p.name}`);
+    if (!wrap || !p.show_if) return;
+
+    let visible = true;
+    for (const [depKey, allowedList] of Object.entries(p.show_if)) {
+      const actualVal = String(currentVals[depKey]);
+      if (!allowedList.includes(actualVal)) {
+        visible = false;
+        break;
+      }
+    }
+    wrap.style.display = visible ? "block" : "none";
+  });
+
+  document.querySelectorAll(".group-title").forEach(header => {
+    const grp = header.dataset.group;
+    const items = Array.from(document.querySelectorAll(`[data-group-item="${grp}"]`));
+    const anyVisible = items.some(el => el.style.display !== "none");
+    header.style.display = anyVisible ? "block" : "none";
+  });
+}
+
+function setStatus(msg, color = "#e5e7eb") {
+  const sb = document.getElementById("status-bar");
+  sb.textContent = msg;
+  sb.style.color = color;
+}
+
+async function renderPart() {
+  if (!currentGenerator) return;
+  setStatus("⏳ Rendering 3D geometry...", "#f59e0b");
+
+  const payload = {
+    generator: currentGenerator.filename,
+    params: collectParams(),
+    custom_name: document.getElementById("custom-name").value
+  };
+
+  try {
+    const res = await fetch("/api/render", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Render failed");
+
+    lastFilename = data.suggested_filename;
+    loadSTLIntoViewer(data.preview_url);
+    setStatus(`✅ ${lastFilename}`, "#10b981");
+
+    const specBanner = document.getElementById("spec-banner");
+    if (data.specs) {
+      specBanner.textContent = "🔧 " + data.specs;
+      specBanner.style.display = "block";
+    } else {
+      specBanner.style.display = "none";
+    }
+  } catch (err) {
+    setStatus(`❌ ${err.message}`, "#ef4444");
+  }
+}
+
+function loadSTLIntoViewer(url) {
+  const loader = new THREE.STLLoader();
+  loader.load(url, (geometry) => {
+    if (currentMesh) scene.remove(currentMesh);
+
+    geometry.computeVertexNormals();
+    geometry.computeBoundingBox();
+    const box = geometry.boundingBox;
+    const size = new THREE.Vector3();
+    box.getSize(size);
+
+    const center = new THREE.Vector3();
+    box.getCenter(center);
+    geometry.translate(-center.x, -center.y, -box.min.z);
+
+    const material = new THREE.MeshStandardMaterial({
+      color: 0x3b82f6, roughness: 0.35, metalness: 0.15
+    });
+    currentMesh = new THREE.Mesh(geometry, material);
+    scene.add(currentMesh);
+
+    document.getElementById("dimensions-box").textContent =
+      `Dimensions: ${size.x.toFixed(2)} × ${size.y.toFixed(2)} × ${size.z.toFixed(2)} mm`;
+  });
+}
+
+function downloadSTL() {
+  const custom = document.getElementById("custom-name").value.trim();
+  const fname = custom ? (custom.endsWith(".stl") ? custom : custom + ".stl") : lastFilename;
+  window.location.href = `/api/preview.stl?download_name=${encodeURIComponent(fname)}`;
+}
+
+async function saveToLibrary() {
+  const payload = {
+    generator: currentGenerator.filename,
+    params: collectParams(),
+    custom_name: document.getElementById("custom-name").value
+  };
+  const res = await fetch("/api/save_to_library", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  const data = await res.json();
+  if (res.ok) {
+    setStatus(`📁 Saved: ${data.path}`, "#10b981");
+  } else {
+    setStatus(`❌ Save Error: ${data.detail}`, "#ef4444");
+  }
+}
+
+loadGenerators();
+try { initThree(); } catch(e) { console.error(e); }
+</script>
+</body>
+</html>
