@@ -1,4 +1,5 @@
 output/*.stl
+output/*.3mf
 output/*.zip
 __pycache__/
 *.pyc

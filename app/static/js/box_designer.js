@@ -411,3 +411,419 @@ function bindCanvasDragEvents() {
     boxLayoutState.dragging = null;
   };
 }
+
+// ============================================================================
+// INTERACTIVE 2D VISUAL BRACKET & ENCLOSURE DESIGNERS (08 & 10)
+// ============================================================================
+let bracketDragState = null;
+
+function initOrSyncVisualHelpers() {
+  initOrSyncBoxDesigner(false);
+  initOrSyncBracketDesigner();
+}
+
+function initOrSyncBracketDesigner() {
+  let card = document.getElementById("bracket-designer-card");
+  if (!card) {
+    const refCard = document.getElementById("box-designer-card");
+    if (refCard) {
+      card = document.createElement("div");
+      card.id = "bracket-designer-card";
+      card.style.cssText = "margin:8px 18px 0 18px; padding:10px 12px; background:rgba(15, 23, 42, 0.78); border:1px solid #3b82f6; border-radius:6px; font-size:0.75rem; color:#dbeafe; display:none;";
+      refCard.parentNode.insertBefore(card, refCard.nextSibling);
+    }
+  }
+  if (!card) return;
+
+  if (!currentGenerator || (currentGenerator.filename !== "08_brackets_joinery.scad" && currentGenerator.filename !== "10_enclosures_plates.scad")) {
+    card.style.display = "none";
+    return;
+  }
+
+  card.style.display = "block";
+  if (currentGenerator.filename === "08_brackets_joinery.scad") {
+    renderBracketVisualUI(card);
+  } else {
+    renderEnclosureVisualUI(card);
+  }
+}
+
+function setParamAndRefresh(paramName, val) {
+  const el = document.querySelector(`[data-param="${paramName}"]`);
+  if (!el) return;
+  if (el.tagName === "SELECT") {
+    const matchOpt = Array.from(el.options).find(o => String(o.value) === String(val));
+    if (matchOpt) {
+      el.value = String(val);
+    } else {
+      const custOpt = Array.from(el.options).find(o => o.value === "__custom__");
+      if (custOpt) {
+        el.value = "__custom__";
+        const custWrap = document.getElementById(`custom-wrap-${paramName}`);
+        if (custWrap) custWrap.style.display = "flex";
+        const custInp = document.querySelector(`[data-custom-for="${paramName}"]`);
+        if (custInp) custInp.value = String(val);
+      }
+    }
+  } else {
+    el.value = String(val);
+  }
+  onControlUpdated();
+}
+
+function renderBracketVisualUI(card) {
+  const vals = collectParams();
+  const bType = vals.bracket_type || "l_ribbed";
+  const L1 = parseFloat(vals.arm_x) || 50;
+  const L2 = parseFloat(vals.arm_y) || 50;
+  const W  = parseFloat(vals.width) || 25;
+  const T  = parseFloat(vals.thick) || 4;
+  const cornerStyle = vals.inside_corner_style || "triangled";
+  const csk1 = vals.csk_side_arm1 || "inside";
+  const csk2 = vals.csk_side_arm2 || "inside";
+
+  card.innerHTML = `
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+      <strong>📐 Interactive 2D Bracket Schematic (Drag Arms or Click CSK)</strong>
+    </div>
+    <canvas id="bracket-canvas" width="376" height="165" style="width:100%; height:165px; background:#0f172a; border:1px solid #3b82f6; border-radius:6px; cursor:pointer; display:block; margin-bottom:8px;"></canvas>
+    <div style="display:flex; gap:6px; margin-bottom:6px;">
+      <div style="flex:1;">
+        <span style="font-size:0.7rem; color:#93c5fd;">Arm 1 (X): <strong>${L1.toFixed(0)} mm</strong></span>
+        <input type="range" min="20" max="140" step="1" value="${L1}" style="width:100%; accent-color:#3b82f6;" oninput="setParamAndRefresh('arm_x', this.value)">
+      </div>
+      <div style="flex:1;">
+        <span style="font-size:0.7rem; color:#6ee7b7;">Arm 2 (Y/Z): <strong>${L2.toFixed(0)} mm</strong></span>
+        <input type="range" min="20" max="140" step="1" value="${L2}" style="width:100%; accent-color:#10b981;" oninput="setParamAndRefresh('arm_y', this.value)">
+      </div>
+      <div style="flex:1;">
+        <span style="font-size:0.7rem; color:#fcd34d;">Width: <strong>${W.toFixed(0)} mm</strong></span>
+        <input type="range" min="12" max="70" step="1" value="${W}" style="width:100%; accent-color:#f59e0b;" oninput="setParamAndRefresh('width', this.value)">
+      </div>
+    </div>
+    ${(bType === "t_plate" || bType === "l_flat") ? `
+      <div style="display:flex; gap:4px; margin-bottom:6px;">
+        <button onclick="setParamAndRefresh('inside_corner_style','triangled')" style="flex:1; padding:4px; font-size:0.7rem; background:${cornerStyle==='triangled'?'#2563eb':'#1f2937'}; color:#fff;">📐 Triangled 45°</button>
+        <button onclick="setParamAndRefresh('inside_corner_style','rounded')" style="flex:1; padding:4px; font-size:0.7rem; background:${cornerStyle==='rounded'?'#2563eb':'#1f2937'}; color:#fff;">➰ Rounded Fillet</button>
+        <button onclick="setParamAndRefresh('inside_corner_style','squared')" style="flex:1; padding:4px; font-size:0.7rem; background:${cornerStyle==='squared'?'#2563eb':'#1f2937'}; color:#fff;">⏹️ Squared 90°</button>
+      </div>
+    ` : ""}
+    <div style="display:flex; gap:6px; font-size:0.71rem;">
+      <button onclick="cycleCsk('csk_side_arm1')" style="flex:1; padding:4px 6px; background:#1e293b; border:1px solid #3b82f6; color:#93c5fd;">🔄 Arm 1 CSK: <strong>${csk1.toUpperCase()}</strong></button>
+      <button onclick="cycleCsk('csk_side_arm2')" style="flex:1; padding:4px 6px; background:#1e293b; border:1px solid #10b981; color:#6ee7b7;">🔄 Arm 2 CSK: <strong>${csk2.toUpperCase()}</strong></button>
+    </div>
+  `;
+
+  drawBracketSchematic(bType, L1, L2, W, T, cornerStyle, csk1, csk2);
+}
+
+function cycleCsk(paramName) {
+  const order = ["inside", "outside", "both", "none"];
+  const vals = collectParams();
+  const curr = vals[paramName] || "inside";
+  const next = order[(order.indexOf(curr) + 1) % order.length];
+  setParamAndRefresh(paramName, next);
+}
+
+function drawBracketSchematic(bType, L1, L2, W, T, cornerStyle, csk1, csk2) {
+  const cvs = document.getElementById("bracket-canvas");
+  if (!cvs) return;
+  const ctx = cvs.getContext("2d");
+  ctx.clearRect(0, 0, cvs.width, cvs.height);
+
+  const scale = Math.min(1.05, 115 / Math.max(L1, L2));
+  const ox = (bType === "t_plate") ? cvs.width / 2 : 95;
+  const oy = cvs.height - 28;
+
+  ctx.save();
+  ctx.fillStyle = "rgba(59, 130, 246, 0.28)";
+  ctx.strokeStyle = "#60a5fa";
+  ctx.lineWidth = 2;
+
+  if (bType === "t_plate") {
+    const hw = L1 * scale;
+    const bw = (W * 0.55) * scale;
+    const sh = L2 * scale;
+    ctx.fillRect(ox - hw, oy - bw, hw * 2, bw);
+    ctx.strokeRect(ox - hw, oy - bw, hw * 2, bw);
+    ctx.fillRect(ox - bw/2, oy - bw - sh, bw, sh);
+    ctx.strokeRect(ox - bw/2, oy - bw - sh, bw, sh);
+
+    if (cornerStyle === "triangled") {
+      ctx.fillStyle = "rgba(16, 185, 129, 0.45)";
+      [-1, 1].forEach(s => {
+        ctx.beginPath();
+        ctx.moveTo(ox + s * (bw/2), oy - bw);
+        ctx.lineTo(ox + s * (bw/2 + 16), oy - bw);
+        ctx.lineTo(ox + s * (bw/2), oy - bw - 16);
+        ctx.closePath();
+        ctx.fill();
+      });
+    }
+  } else {
+    const w1 = L1 * scale;
+    const h2 = L2 * scale;
+    const th = Math.max(10, T * 2.5);
+    // Horizontal Arm 1
+    ctx.fillRect(ox, oy - th, w1, th);
+    ctx.strokeRect(ox, oy - th, w1, th);
+    // Vertical Arm 2
+    ctx.fillRect(ox, oy - h2, th, h2);
+    ctx.strokeRect(ox, oy - h2, th, h2);
+
+    // Gusset preview
+    if (bType === "l_ribbed" || cornerStyle === "triangled") {
+      ctx.fillStyle = "rgba(16, 185, 129, 0.35)";
+      ctx.beginPath();
+      ctx.moveTo(ox + th, oy - th);
+      ctx.lineTo(ox + w1 * 0.75, oy - th);
+      ctx.lineTo(ox + th, oy - h2 * 0.75);
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
+
+  ctx.fillStyle = "#e2e8f0";
+  ctx.font = "600 11px system-ui";
+  ctx.fillText(`Arm 1: ${L1}mm (${csk1} CSK)`, ox + 18, oy + 16);
+  ctx.fillStyle = "#6ee7b7";
+  ctx.fillText(`Arm 2: ${L2}mm (${csk2} CSK)`, 12, oy - (L2 * scale) / 2);
+  ctx.restore();
+}
+
+function renderEnclosureVisualUI(card) {
+  const vals = collectParams();
+  if (vals.enclosure_type === "din_clip") {
+    card.style.display = "none";
+    return;
+  }
+  const IX = parseFloat(vals.inner_x) || 92;
+  const IY = parseFloat(vals.inner_y) || 62;
+  const IZ = parseFloat(vals.inner_z) || 30;
+
+  card.innerHTML = `
+    <div style="margin-bottom:6px;"><strong>📐 Visual Enclosure Sizing (Interior: ${IX} × ${IY} × ${IZ} mm)</strong></div>
+    <div style="display:flex; gap:6px; margin-bottom:4px;">
+      <div style="flex:1;">
+        <span style="font-size:0.7rem; color:#93c5fd;">Inner X: <strong>${IX} mm</strong></span>
+        <input type="range" min="35" max="180" step="1" value="${IX}" style="width:100%; accent-color:#3b82f6;" oninput="setParamAndRefresh('inner_x', this.value)">
+      </div>
+      <div style="flex:1;">
+        <span style="font-size:0.7rem; color:#6ee7b7;">Inner Y: <strong>${IY} mm</strong></span>
+        <input type="range" min="25" max="140" step="1" value="${IY}" style="width:100%; accent-color:#10b981;" oninput="setParamAndRefresh('inner_y', this.value)">
+      </div>
+      <div style="flex:1;">
+        <span style="font-size:0.7rem; color:#fcd34d;">Depth Z: <strong>${IZ} mm</strong></span>
+        <input type="range" min="15" max="80" step="1" value="${IZ}" style="width:100%; accent-color:#f59e0b;" oninput="setParamAndRefresh('inner_z', this.value)">
+      </div>
+    </div>
+  `;
+}
+
+// ============================================================================
+// INTERACTIVE 2D VISUAL BRACKET & ENCLOSURE DESIGNERS (08 & 10)
+// ============================================================================
+let bracketDragState = null;
+
+function initOrSyncVisualHelpers() {
+  initOrSyncBoxDesigner(false);
+  initOrSyncBracketDesigner();
+}
+
+function initOrSyncBracketDesigner() {
+  let card = document.getElementById("bracket-designer-card");
+  if (!card) {
+    const refCard = document.getElementById("box-designer-card");
+    if (refCard) {
+      card = document.createElement("div");
+      card.id = "bracket-designer-card";
+      card.style.cssText = "margin:8px 18px 0 18px; padding:10px 12px; background:rgba(15, 23, 42, 0.78); border:1px solid #3b82f6; border-radius:6px; font-size:0.75rem; color:#dbeafe; display:none;";
+      refCard.parentNode.insertBefore(card, refCard.nextSibling);
+    }
+  }
+  if (!card) return;
+
+  if (!currentGenerator || (currentGenerator.filename !== "08_brackets_joinery.scad" && currentGenerator.filename !== "10_enclosures_plates.scad")) {
+    card.style.display = "none";
+    return;
+  }
+
+  card.style.display = "block";
+  if (currentGenerator.filename === "08_brackets_joinery.scad") {
+    renderBracketVisualUI(card);
+  } else {
+    renderEnclosureVisualUI(card);
+  }
+}
+
+function setParamAndRefresh(paramName, val) {
+  const el = document.querySelector(`[data-param="${paramName}"]`);
+  if (!el) return;
+  if (el.tagName === "SELECT") {
+    const matchOpt = Array.from(el.options).find(o => String(o.value) === String(val));
+    if (matchOpt) {
+      el.value = String(val);
+    } else {
+      const custOpt = Array.from(el.options).find(o => o.value === "__custom__");
+      if (custOpt) {
+        el.value = "__custom__";
+        const custWrap = document.getElementById(`custom-wrap-${paramName}`);
+        if (custWrap) custWrap.style.display = "flex";
+        const custInp = document.querySelector(`[data-custom-for="${paramName}"]`);
+        if (custInp) custInp.value = String(val);
+      }
+    }
+  } else {
+    el.value = String(val);
+  }
+  onControlUpdated();
+}
+
+function renderBracketVisualUI(card) {
+  const vals = collectParams();
+  const bType = vals.bracket_type || "l_ribbed";
+  const L1 = parseFloat(vals.arm_x) || 50;
+  const L2 = parseFloat(vals.arm_y) || 50;
+  const W  = parseFloat(vals.width) || 25;
+  const T  = parseFloat(vals.thick) || 4;
+  const cornerStyle = vals.inside_corner_style || "triangled";
+  const csk1 = vals.csk_side_arm1 || "inside";
+  const csk2 = vals.csk_side_arm2 || "inside";
+
+  card.innerHTML = `
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+      <strong>📐 Interactive 2D Bracket Schematic (Drag Arms or Click CSK)</strong>
+    </div>
+    <canvas id="bracket-canvas" width="376" height="165" style="width:100%; height:165px; background:#0f172a; border:1px solid #3b82f6; border-radius:6px; cursor:pointer; display:block; margin-bottom:8px;"></canvas>
+    <div style="display:flex; gap:6px; margin-bottom:6px;">
+      <div style="flex:1;">
+        <span style="font-size:0.7rem; color:#93c5fd;">Arm 1 (X): <strong>${L1.toFixed(0)} mm</strong></span>
+        <input type="range" min="20" max="140" step="1" value="${L1}" style="width:100%; accent-color:#3b82f6;" oninput="setParamAndRefresh('arm_x', this.value)">
+      </div>
+      <div style="flex:1;">
+        <span style="font-size:0.7rem; color:#6ee7b7;">Arm 2 (Y/Z): <strong>${L2.toFixed(0)} mm</strong></span>
+        <input type="range" min="20" max="140" step="1" value="${L2}" style="width:100%; accent-color:#10b981;" oninput="setParamAndRefresh('arm_y', this.value)">
+      </div>
+      <div style="flex:1;">
+        <span style="font-size:0.7rem; color:#fcd34d;">Width: <strong>${W.toFixed(0)} mm</strong></span>
+        <input type="range" min="12" max="70" step="1" value="${W}" style="width:100%; accent-color:#f59e0b;" oninput="setParamAndRefresh('width', this.value)">
+      </div>
+    </div>
+    ${(bType === "t_plate" || bType === "l_flat") ? `
+      <div style="display:flex; gap:4px; margin-bottom:6px;">
+        <button onclick="setParamAndRefresh('inside_corner_style','triangled')" style="flex:1; padding:4px; font-size:0.7rem; background:${cornerStyle==='triangled'?'#2563eb':'#1f2937'}; color:#fff;">📐 Triangled 45°</button>
+        <button onclick="setParamAndRefresh('inside_corner_style','rounded')" style="flex:1; padding:4px; font-size:0.7rem; background:${cornerStyle==='rounded'?'#2563eb':'#1f2937'}; color:#fff;">➰ Rounded Fillet</button>
+        <button onclick="setParamAndRefresh('inside_corner_style','squared')" style="flex:1; padding:4px; font-size:0.7rem; background:${cornerStyle==='squared'?'#2563eb':'#1f2937'}; color:#fff;">⏹️ Squared 90°</button>
+      </div>
+    ` : ""}
+    <div style="display:flex; gap:6px; font-size:0.71rem;">
+      <button onclick="cycleCsk('csk_side_arm1')" style="flex:1; padding:4px 6px; background:#1e293b; border:1px solid #3b82f6; color:#93c5fd;">🔄 Arm 1 CSK: <strong>${csk1.toUpperCase()}</strong></button>
+      <button onclick="cycleCsk('csk_side_arm2')" style="flex:1; padding:4px 6px; background:#1e293b; border:1px solid #10b981; color:#6ee7b7;">🔄 Arm 2 CSK: <strong>${csk2.toUpperCase()}</strong></button>
+    </div>
+  `;
+
+  drawBracketSchematic(bType, L1, L2, W, T, cornerStyle, csk1, csk2);
+}
+
+function cycleCsk(paramName) {
+  const order = ["inside", "outside", "both", "none"];
+  const vals = collectParams();
+  const curr = vals[paramName] || "inside";
+  const next = order[(order.indexOf(curr) + 1) % order.length];
+  setParamAndRefresh(paramName, next);
+}
+
+function drawBracketSchematic(bType, L1, L2, W, T, cornerStyle, csk1, csk2) {
+  const cvs = document.getElementById("bracket-canvas");
+  if (!cvs) return;
+  const ctx = cvs.getContext("2d");
+  ctx.clearRect(0, 0, cvs.width, cvs.height);
+
+  const scale = Math.min(1.05, 115 / Math.max(L1, L2));
+  const ox = (bType === "t_plate") ? cvs.width / 2 : 95;
+  const oy = cvs.height - 28;
+
+  ctx.save();
+  ctx.fillStyle = "rgba(59, 130, 246, 0.28)";
+  ctx.strokeStyle = "#60a5fa";
+  ctx.lineWidth = 2;
+
+  if (bType === "t_plate") {
+    const hw = L1 * scale;
+    const bw = (W * 0.55) * scale;
+    const sh = L2 * scale;
+    ctx.fillRect(ox - hw, oy - bw, hw * 2, bw);
+    ctx.strokeRect(ox - hw, oy - bw, hw * 2, bw);
+    ctx.fillRect(ox - bw/2, oy - bw - sh, bw, sh);
+    ctx.strokeRect(ox - bw/2, oy - bw - sh, bw, sh);
+
+    if (cornerStyle === "triangled") {
+      ctx.fillStyle = "rgba(16, 185, 129, 0.45)";
+      [-1, 1].forEach(s => {
+        ctx.beginPath();
+        ctx.moveTo(ox + s * (bw/2), oy - bw);
+        ctx.lineTo(ox + s * (bw/2 + 16), oy - bw);
+        ctx.lineTo(ox + s * (bw/2), oy - bw - 16);
+        ctx.closePath();
+        ctx.fill();
+      });
+    }
+  } else {
+    const w1 = L1 * scale;
+    const h2 = L2 * scale;
+    const th = Math.max(10, T * 2.5);
+    // Horizontal Arm 1
+    ctx.fillRect(ox, oy - th, w1, th);
+    ctx.strokeRect(ox, oy - th, w1, th);
+    // Vertical Arm 2
+    ctx.fillRect(ox, oy - h2, th, h2);
+    ctx.strokeRect(ox, oy - h2, th, h2);
+
+    // Gusset preview
+    if (bType === "l_ribbed" || cornerStyle === "triangled") {
+      ctx.fillStyle = "rgba(16, 185, 129, 0.35)";
+      ctx.beginPath();
+      ctx.moveTo(ox + th, oy - th);
+      ctx.lineTo(ox + w1 * 0.75, oy - th);
+      ctx.lineTo(ox + th, oy - h2 * 0.75);
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
+
+  ctx.fillStyle = "#e2e8f0";
+  ctx.font = "600 11px system-ui";
+  ctx.fillText(`Arm 1: ${L1}mm (${csk1} CSK)`, ox + 18, oy + 16);
+  ctx.fillStyle = "#6ee7b7";
+  ctx.fillText(`Arm 2: ${L2}mm (${csk2} CSK)`, 12, oy - (L2 * scale) / 2);
+  ctx.restore();
+}
+
+function renderEnclosureVisualUI(card) {
+  const vals = collectParams();
+  if (vals.enclosure_type === "din_clip") {
+    card.style.display = "none";
+    return;
+  }
+  const IX = parseFloat(vals.inner_x) || 92;
+  const IY = parseFloat(vals.inner_y) || 62;
+  const IZ = parseFloat(vals.inner_z) || 30;
+
+  card.innerHTML = `
+    <div style="margin-bottom:6px;"><strong>📐 Visual Enclosure Sizing (Interior: ${IX} × ${IY} × ${IZ} mm)</strong></div>
+    <div style="display:flex; gap:6px; margin-bottom:4px;">
+      <div style="flex:1;">
+        <span style="font-size:0.7rem; color:#93c5fd;">Inner X: <strong>${IX} mm</strong></span>
+        <input type="range" min="35" max="180" step="1" value="${IX}" style="width:100%; accent-color:#3b82f6;" oninput="setParamAndRefresh('inner_x', this.value)">
+      </div>
+      <div style="flex:1;">
+        <span style="font-size:0.7rem; color:#6ee7b7;">Inner Y: <strong>${IY} mm</strong></span>
+        <input type="range" min="25" max="140" step="1" value="${IY}" style="width:100%; accent-color:#10b981;" oninput="setParamAndRefresh('inner_y', this.value)">
+      </div>
+      <div style="flex:1;">
+        <span style="font-size:0.7rem; color:#fcd34d;">Depth Z: <strong>${IZ} mm</strong></span>
+        <input type="range" min="15" max="80" step="1" value="${IZ}" style="width:100%; accent-color:#f59e0b;" oninput="setParamAndRefresh('inner_z', this.value)">
+      </div>
+    </div>
+  `;
+}

@@ -88,6 +88,9 @@ printer_slop = 0.16;
 // Chamfer Ends (Prevents Elephant Foot)
 bevel_ends = true;
 
+// Print Orientation [vertical:Vertical Standing (Crispest Threads), horizontal_d_cut:Horizontal Flat-Sided D-Cut (4x Stronger Layer Lines - Zero Supports!)] @show_if(part_type=bolt|rod)
+print_orientation = "vertical";
+
 /* [Hidden] */
 $fn = 64;
 $slop = printer_slop;
@@ -290,6 +293,7 @@ module cut_drive_recess() {
     }
 }
 
+module raw_bolt_or_rod() {
 if (part_type == "bolt") {
     difference() {
         union() {
@@ -359,6 +363,22 @@ if (part_type == "bolt") {
         bevel = safe_bevel,
         anchor = BOTTOM
     );
+}
+}
+
+if (part_type == "bolt" || part_type == "rod") {
+    if (print_orientation == "horizontal_d_cut") {
+        // Rotate horizontal & shave 14% off top/bottom so layer lines run lengthwise along the shaft!
+        flat_keep = nom_diam * 0.74;
+        up(flat_keep / 2)
+        intersection() {
+            rotate([0, 90, 0])
+                raw_bolt_or_rod();
+            cuboid([500, max(head_od, nom_diam) * 2, flat_keep], center = true);
+        }
+    } else {
+        raw_bolt_or_rod();
+    }
 } else if (part_type == "nut") {
     nut(
         spec = spec_str,

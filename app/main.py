@@ -1,9 +1,11 @@
 import os
 import re
+import json
 import math
 import struct
 import shutil
 import zipfile
+import urllib.request
 import subprocess
 from pathlib import Path
 from typing import Dict, Any, List
@@ -18,6 +20,7 @@ app.mount("/static", StaticFiles(directory="/app/static"), name="static")
 GENERATORS_DIR = Path("/generators")
 OUTPUT_DIR = Path("/output")
 LIBRARY_DIR = Path("/library/Hardware_Forge")
+PRESETS_FILE = OUTPUT_DIR / "saved_presets.json"
 
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -40,6 +43,18 @@ class KitRequest(BaseModel):
     items: List[KitItem]
     spacing: float = 4.0
     kit_name: str = "Hardware_Kit"
+
+class MoonrakerRequest(BaseModel):
+    printer_ip: str = "192.168.86.134"
+    mode: str = "single" # "single" or "kit"
+    filename: str = "Hardware_Forge_Part.stl"
+
+class PresetSaveRequest(BaseModel):
+    name: str
+    preset_type: str # "part" or "kit"
+    generator: str = ""
+    params: Dict[str, Any] = {}
+    items: List[Dict[str, Any]] = []
 
 def parse_scad_parameters(filepath: Path):
     params = []
@@ -191,11 +206,9 @@ def run_openscad_to_file(generator_name: str, params: Dict[str, Any], out_stl: P
         raise HTTPException(status_code=500, detail=f"OpenSCAD Error:\n{proc.stderr}")
     return proc
 
-# Pure Python Binary/ASCII STL Reader + 2D Auto-Platter Packer (Zero extra dependencies!)
 def read_stl_triangles(stl_path: Path):
     data = stl_path.read_bytes()
     triangles = []
-    # Check if binary STL (80-byte header + 4-byte uint32 count + 50 bytes per triangle)
     if len(data) >= 84:
         tri_count = struct.unpack("<I", data[80:84])[0]
         if 84 + (tri_count * 50) == len(data):
@@ -208,7 +221,6 @@ def read_stl_triangles(stl_path: Path):
                 offset += 50
             return triangles
 
-    # Fallback ASCII STL parser
     text = data.decode("utf-8", errors="ignore")
     curr_n = (0.0, 0.0, 0.0)
     curr_v = []
@@ -226,7 +238,6 @@ def read_stl_triangles(stl_path: Path):
     return triangles
 
 def get_bounds_and_normalize(triangles):
-    """Centers mesh on X/Y=0 and puts bottom flush on Z=0. Returns (normalized_tris, size_x, size_y, size_z)."""
     if not triangles:
         return [], 0, 0, 0
     min_x = min_y = min_z = float("inf")
@@ -264,8 +275,66 @@ def write_binary_stl(out_path: Path, triangles):
                 0
             ))
 
+# Native Multi-Object .3MF Archive Generator (Each Kit Part Remains Separate & Selectable in OrcaSlicer!)
+def write_multi_object_3mf(out_3mf_path: Path, placed_objects):
+    content_types = """<?xml version="1.0" encoding="UTF-8"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/>
+</Types>"""
+    rels = """<?xml version="1.0" encoding="UTF-8"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Target="/3D/3dmodel.model" Id="rel0" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/>
+</Relationships>"""
+
+    resources_xml = []
+    build_xml = []
+
+    for obj_id, obj in enumerate(placed_objects, start=1):
+        v_map = {}
+        v_list = []
+        t_list = []
+        for _, verts in obj["tris"]:
+            idxs = []
+            for vx, vy, vz in verts:
+                key = (round(vx, 4), round(vy, 4), round(vz, 4))
+                if key not in v_map:
+                    v_map[key] = len(v_list)
+                    v_list.append(key)
+                idxs.append(v_map[key])
+            t_list.append(idxs)
+
+        v_str = "\n".join(f'          <vertex x="{x}" y="{y}" z="{z}"/>' for x, y, z in v_list)
+        t_str = "\n".join(f'          <triangle v1="{a}" v2="{b}" v3="{c}"/>' for a, b, c in t_list)
+        safe_name = re.sub(r'[^a-zA-Z0-9_\-]', '_', obj["name"])
+        resources_xml.append(f"""    <object id="{obj_id}" name="{safe_name}" type="model">
+      <mesh>
+        <vertices>
+{v_str}
+        </vertices>
+        <triangles>
+{t_str}
+        </triangles>
+      </mesh>
+    </object>""")
+        build_xml.append(f'    <item objectid="{obj_id}" transform="1 0 0 0 1 0 0 0 1 {obj["tx"]:.3f} {obj["ty"]:.3f} 0"/>')
+
+    model_xml = f"""<?xml version="1.0" encoding="UTF-8"?>
+<model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">
+  <resources>
+{chr(10).join(resources_xml)}
+  </resources>
+  <build>
+{chr(10).join(build_xml)}
+  </build>
+</model>"""
+
+    with zipfile.ZipFile(out_3mf_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("[Content_Types].xml", content_types)
+        zf.writestr("_rels/.rels", rels)
+        zf.writestr("3D/3dmodel.model", model_xml)
+
 def pack_kit_meshes(items: List[KitItem], spacing: float):
-    """Renders each unique cart item, duplicates by qty, packs on 2D build plate, and writes kit_preview.stl & kit.zip."""
     instances = []
     individual_files = []
 
@@ -278,18 +347,16 @@ def pack_kit_meshes(items: List[KitItem], spacing: float):
         clean_fname = build_filename(item.generator, item.params, item.label)
         individual_files.append((clean_fname, tmp_stl, max(1, item.qty)))
 
-        for _ in range(max(1, item.qty)):
+        for q_i in range(max(1, item.qty)):
             instances.append({
+                "name": f"{Path(clean_fname).stem}_{q_i+1}",
                 "tris": norm_tris,
                 "w": sx,
                 "d": sy,
-                "h": sz,
-                "area": sx * sy
+                "h": sz
             })
 
-    # Sort largest footprint to smallest for clean shelf packing
     instances.sort(key=lambda x: max(x["w"], x["d"]), reverse=True)
-
     total_area = sum((inst["w"] + spacing) * (inst["d"] + spacing) for inst in instances)
     target_row_width = max(
         max((inst["w"] for inst in instances), default=40.0),
@@ -297,6 +364,7 @@ def pack_kit_meshes(items: List[KitItem], spacing: float):
     )
 
     placed_tris = []
+    placed_objects_3mf = []
     curr_x = 0.0
     curr_y = 0.0
     row_depth = 0.0
@@ -315,25 +383,34 @@ def pack_kit_meshes(items: List[KitItem], spacing: float):
             shifted = [[vx + px, vy + py, vz] for vx, vy, vz in verts]
             placed_tris.append((n, shifted))
 
+        placed_objects_3mf.append({
+            "name": inst["name"],
+            "tris": inst["tris"],
+            "tx": px,
+            "ty": py
+        })
+
         curr_x += w + spacing
         if d > row_depth:
             row_depth = d
 
-    # Re-center entire packed build plate around (0,0,0)
     final_tris, plate_x, plate_y, plate_z = get_bounds_and_normalize(placed_tris)
     kit_stl_path = OUTPUT_DIR / "kit_preview.stl"
     write_binary_stl(kit_stl_path, final_tris)
 
-    # Also build a ZIP containing individual STLs + the combined plate STL
+    kit_3mf_path = OUTPUT_DIR / "kit_multi_object.3mf"
+    write_multi_object_3mf(kit_3mf_path, placed_objects_3mf)
+
     zip_path = OUTPUT_DIR / "kit_bundle.zip"
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.write(kit_3mf_path, arcname="00_Multi_Object_Build_Plate_Kit.3mf")
         zf.write(kit_stl_path, arcname="00_Combined_Build_Plate_Kit.stl")
         for fname, fpath, qty in individual_files:
             stem = Path(fname).stem
             arc = f"{stem}_x{qty}.stl" if qty > 1 else fname
             zf.write(fpath, arcname=arc)
 
-    return kit_stl_path, zip_path, len(instances), (plate_x, plate_y, plate_z)
+    return kit_stl_path, kit_3mf_path, zip_path, len(instances), (plate_x, plate_y, plate_z)
 
 @app.get("/", response_class=HTMLResponse)
 def index():
@@ -396,8 +473,8 @@ def get_preview_stl(download_name: str = ""):
     if not out_stl.exists():
         raise HTTPException(status_code=404, detail="No model rendered yet")
     if download_name:
-        return FileResponse(out_stl, media_type="application/sla", filename=download_name)
-    return FileResponse(out_stl, media_type="application/sla")
+        return FileResponse(out_stl, media_type="application/octet-stream", filename=download_name)
+    return FileResponse(out_stl, media_type="application/octet-stream")
 
 @app.post("/api/save_to_library")
 def save_to_library(req: RenderRequest):
@@ -420,7 +497,7 @@ def save_to_library(req: RenderRequest):
 def render_kit(req: KitRequest):
     if not req.items:
         raise HTTPException(status_code=400, detail="Kit cart is empty")
-    kit_stl, _, total_parts, dims = pack_kit_meshes(req.items, req.spacing)
+    kit_stl, _, _, total_parts, dims = pack_kit_meshes(req.items, req.spacing)
     safe_name = re.sub(r'[^a-zA-Z0-9_\-]', '_', req.kit_name.strip() or "Hardware_Kit") + ".stl"
     return {
         "status": "ok",
@@ -436,8 +513,15 @@ def get_kit_preview_stl(download_name: str = ""):
     if not kit_stl.exists():
         raise HTTPException(status_code=404, detail="No kit rendered yet")
     if download_name:
-        return FileResponse(kit_stl, media_type="application/sla", filename=download_name)
-    return FileResponse(kit_stl, media_type="application/sla")
+        return FileResponse(kit_stl, media_type="application/octet-stream", filename=download_name)
+    return FileResponse(kit_stl, media_type="application/octet-stream")
+
+@app.get("/api/kit_multi_object.3mf")
+def get_kit_3mf(download_name: str = "Hardware_Kit.3mf"):
+    kit_3mf = OUTPUT_DIR / "kit_multi_object.3mf"
+    if not kit_3mf.exists():
+        raise HTTPException(status_code=404, detail="Render the kit first")
+    return FileResponse(kit_3mf, media_type="application/vnd.ms-package.3dmanufacturing-3dmodel+xml", filename=download_name)
 
 @app.get("/api/kit_bundle.zip")
 def get_kit_zip(download_name: str = "Hardware_Kit_Pack.zip"):
@@ -448,18 +532,110 @@ def get_kit_zip(download_name: str = "Hardware_Kit_Pack.zip"):
 
 @app.post("/api/save_kit_to_library")
 def save_kit_to_library(req: KitRequest):
-    kit_stl, zip_path, total_parts, _ = pack_kit_meshes(req.items, req.spacing)
+    kit_stl, kit_3mf, zip_path, total_parts, _ = pack_kit_meshes(req.items, req.spacing)
     base_name = re.sub(r'[^a-zA-Z0-9_\-]', '_', req.kit_name.strip() or "Hardware_Kit")
     try:
         target_dir = LIBRARY_DIR / "Kits"
         target_dir.mkdir(parents=True, exist_ok=True)
         stl_dest = target_dir / f"{base_name}_{total_parts}pcs.stl"
+        threemf_dest = target_dir / f"{base_name}_{total_parts}pcs.3mf"
         zip_dest = target_dir / f"{base_name}_{total_parts}pcs_Pack.zip"
         shutil.copy2(kit_stl, stl_dest)
+        shutil.copy2(kit_3mf, threemf_dest)
         shutil.copy2(zip_path, zip_dest)
         return {
             "status": "saved",
-            "path": f"/media/lucas/NewPlex/3d Prints/Hardware_Forge/Kits/{stl_dest.name} (+ ZIP Pack)"
+            "path": f"/media/lucas/NewPlex/3d Prints/Hardware_Forge/Kits/{threemf_dest.name} (+ .STL & .ZIP)"
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# Saved Part & Kit Presets API
+@app.get("/api/presets")
+def get_presets():
+    if not PRESETS_FILE.exists():
+        return []
+    try:
+        return json.loads(PRESETS_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+
+@app.post("/api/presets")
+def save_preset(req: PresetSaveRequest):
+    presets = get_presets()
+    presets = [p for p in presets if p.get("name") != req.name]
+    presets.append(req.dict())
+    PRESETS_FILE.write_text(json.dumps(presets, indent=2), encoding="utf-8")
+    return {"status": "saved", "presets": presets}
+
+@app.delete("/api/presets/{preset_name}")
+def delete_preset(preset_name: str):
+    presets = [p for p in get_presets() if p.get("name") != preset_name]
+    PRESETS_FILE.write_text(json.dumps(presets, indent=2), encoding="utf-8")
+    return {"status": "deleted", "presets": presets}
+
+# Direct Push to Klipper / Moonraker (FlashForge Creator 5 Pro @ 192.168.86.134)
+@app.post("/api/send_to_moonraker")
+def send_to_moonraker(req: MoonrakerRequest):
+    src_file = (OUTPUT_DIR / "kit_multi_object.3mf") if req.mode == "kit" else (OUTPUT_DIR / "preview.stl")
+    if not src_file.exists():
+        raise HTTPException(status_code=400, detail="Render the model or kit first before sending.")
+
+    boundary = "----HardwareForgeBoundary7MA4YWxkTrZu0gW"
+    file_bytes = src_file.read_bytes()
+    fname = re.sub(r'[^a-zA-Z0-9_\-\.]', '_', req.filename)
+
+    body = (
+        f"--{boundary}\r\n"
+        f'Content-Disposition: form-data; name="root"\r\n\r\ngcodes\r\n'
+        f"--{boundary}\r\n"
+        f'Content-Disposition: form-data; name="file"; filename="{fname}"\r\n'
+        f"Content-Type: application/octet-stream\r\n\r\n"
+    ).encode("utf-8") + file_bytes + f"\r\n--{boundary}--\r\n".encode("utf-8")
+
+    url = f"http://{req.printer_ip.strip()}/server/files/upload"
+    http_req = urllib.request.Request(url, data=body, method="POST")
+    http_req.add_header("Content-Type", f"multipart/form-data; boundary={boundary}")
+    try:
+        with urllib.request.urlopen(http_req, timeout=8) as resp:
+            return {"status": "uploaded", "printer": req.printer_ip, "filename": fname}
+    except urllib.error.HTTPError as he:
+        err_body = he.read().decode("utf-8", errors="ignore")
+        raise HTTPException(
+            status_code=502,
+            detail=f"Printer rejected {fname} (HTTP {he.code}). Note: Klipper/Moonraker only accepts sliced .gcode files, not raw .stl/.3mf meshes! Slice in OrcaSlicer first. ({err_body[:120]})"
+        )
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Connection to {req.printer_ip} failed: {e}")
+
+
+@app.get("/api/export/single/{filename}")
+def export_single_clean(filename: str):
+    out_stl = OUTPUT_DIR / "preview.stl"
+    if not out_stl.exists():
+        raise HTTPException(status_code=404, detail="No model rendered yet")
+    safe_name = re.sub(r'[^a-zA-Z0-9_\-\.]', '_', filename)
+    return FileResponse(
+        out_stl,
+        media_type="application/octet-stream",
+        filename=safe_name,
+        headers={"Content-Disposition": f'attachment; filename="{safe_name}"'}
+    )
+
+@app.get("/api/export/kit/{filename}")
+def export_kit_clean(filename: str):
+    safe_name = re.sub(r'[^a-zA-Z0-9_\-\.]', '_', filename)
+    if safe_name.lower().endswith(".3mf"):
+        target = OUTPUT_DIR / "kit_multi_object.3mf"
+    elif safe_name.lower().endswith(".zip"):
+        target = OUTPUT_DIR / "kit_bundle.zip"
+    else:
+        target = OUTPUT_DIR / "kit_preview.stl"
+    if not target.exists():
+        raise HTTPException(status_code=404, detail="Render kit first")
+    return FileResponse(
+        target,
+        media_type="application/octet-stream",
+        filename=safe_name,
+        headers={"Content-Disposition": f'attachment; filename="{safe_name}"'}
+    )

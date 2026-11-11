@@ -2,6 +2,21 @@
 
 All notable changes to **Hardware Forge** are documented in this file.
 
+## [v1.2.0] - 2026-11-11
+### Added
+- **6 New Hardware Generator Categories (`07` through `12`):**
+  - `07_clamps_mounts.scad`: Round pipe and square/rectangular tube tangential band clamps, C-clamps, 2-hole saddle straps, split-ear P-clips, 2-piece split blocks, and auto-widening snap-in clips with unobstructed countersink bores.
+  - `08_brackets_joinery.scad`: Heavy-duty gusseted L-brackets, flat L/T plates with selectable `Triangled 45°`, `Rounded Fillet`, or `Squared 90°` interior corners, independent Arm 1 / Arm 2 countersink side controls, 3-way corner brackets, and 2020/4040 extrusion gussets.
+  - `09_knobs_handles.scad`: 3-to-8 lobe star knobs, knurled thumbwheels, wing knobs, and U-pull handles with top/bottom hex traps or printed threads.
+  - `10_enclosures_plates.scad`: Vented electronics project enclosures with PCB standoffs and 35mm DIN-rail snap-on clips.
+  - `11_gauges_jigs.scad`: Printer fit-slop calibration matrix (`0.08mm`–`0.25mm`), bolt/nut sizer card, and self-centering V-block pipe drill jig.
+  - `12_gaskets_seals.scad`: Bolt-circle pipe flange gaskets, rectangular enclosure seals, D-profile O-rings, 1-gang/2-gang/4x4 weatherproof electrical box gaskets, and panel knockout grommets.
+- **Multi-Object `.3MF` Kit Exporter:** Exports packed build plates as standard `.3mf` archives where every part remains a distinct, selectable object in OrcaSlicer.
+- **Zero-Config `/api/export/` Downloads & Native `orcaslicer://` Launch:** Clean filename routes eliminate browser security warnings and launch directly in OrcaSlicer without custom scripts.
+- **Interactive 2D Visual Bracket & Enclosure Designers:** Live 2D schematic canvas for brackets and enclosures alongside the 2D cubby designer.
+- **3D Cutaway X-Ray Slider & Saved Presets Manager:** Real-time Three.js clipping plane for inspecting internal threads/sockets and JSON preset storage for parts and kit recipes.
+- **Horizontal D-Cut Bolt Mode (`01_fasteners.scad`):** Optional flat-sided horizontal printing orientation for 4x–5x higher tensile strength.
+
 ## [v1.1.0] - 2026-11-11
 ### Added
 - **Interactive 2D Visual Cubby & Divider Designer (`box_designer.js`):** Click-and-drag 2D canvas and multi-sliders for custom column widths, independent row counts per column, and automatic remainder calculation on the final cubby.
