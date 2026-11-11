@@ -9,7 +9,7 @@ part_type = "bolt";
 unit_system = "metric";
 
 // Metric Thread Size [M1.6:M1.6 (0.35mm Pitch), M2:M2 (0.4mm Pitch), M2.5:M2.5 (0.45mm Pitch), M3:M3 (0.5mm Pitch), M4:M4 (0.7mm Pitch), M5:M5 (0.8mm Pitch), M6:M6 (1.0mm Pitch), M8:M8 (1.25mm Pitch), M10:M10 (1.5mm Pitch), M12:M12 (1.75mm Pitch), M14:M14 (2.0mm Pitch), M16:M16 (2.0mm Pitch), M20:M20 (2.5mm Pitch)] @show_if(unit_system=metric)
-metric_size = "M6";
+metric_size = "M8";
 
 // Imperial Thread Size [#2-56:#2-56 UNC, #4-40:#4-40 UNC, #6-32:#6-32 UNC, #8-32:#8-32 UNC, #10-24:#10-24 UNC, #10-32:#10-32 UNF, 1/4-20:1/4"-20 UNC, 1/4-28:1/4"-28 UNF, 5/16-18:5/16"-18 UNC, 5/16-24:5/16"-24 UNF, 3/8-16:3/8"-16 UNC, 3/8-24:3/8"-24 UNF, 7/16-14:7/16"-14 UNC, 1/2-13:1/2"-13 UNC, 1/2-20:1/2"-20 UNF, 5/8-11:5/8"-11 UNC, 3/4-10:3/4"-10 UNC] @show_if(unit_system=imperial)
 imperial_size = "1/4-20";
@@ -45,19 +45,25 @@ phillips_drive_size = "auto";
 // Slotted Blade Width [auto:Auto (Standard for Bolt), 0.5:0.5 mm Micro Slot, 0.8:0.8 mm Fine Slot, 1.0:1.0 mm Slot, 1.2:1.2 mm Standard Slot, 1.6:1.6 mm Medium Slot, 2.0:2.0 mm Wide Slot, 2.5:2.5 mm Heavy Slot, 3.0:3.0 mm Extra Heavy Slot] @show_if(part_type=bolt, head_type=socket|button|flat|pan, drive_type=slot|combo)
 slot_width_override = "auto";
 
-/* [3. Bolt & Rod Length (Supports Custom Exact Decimals)] */
-// Shank / Rod Length [2:2 mm, 4:4 mm, 6:6 mm (~1/4"), 8:8 mm (~5/16"), 10:10 mm (~3/8"), 12:12 mm (~1/2"), 16:16 mm (~5/8"), 20:20 mm (~3/4"), 25:25 mm (~1"), 30:30 mm (~1-1/4"), 35:35 mm, 40:40 mm (~1-1/2"), 45:45 mm, 50:50 mm (~2"), 60:60 mm (~2-1/2"), 75:75 mm (~3"), 100:100 mm (~4"), 125:125 mm (~5"), 150:150 mm (~6")] @show_if(part_type=bolt|rod)
+/* [3. Bolt, Shoulder Grip & Thread Length] */
+// Thread Coverage [full:Fully Threaded Shank, partial_grip:Exact Unthreaded Shoulder Grip + Positive-Stop Flush Nut (Recommended!), partial_total:Specify Total Shank Length & Partial Thread Length] @show_if(part_type=bolt)
+thread_coverage = "partial_grip";
+
+// Exact Unthreaded Shoulder Grip Length (Nut Stops Dead at This Length!) [5:5 mm, 8:8 mm, 10:10 mm, 12:12 mm, 15:15 mm, 16:16 mm, 18:18 mm, 20:20 mm, 21:21 mm, 22:22 mm, 25:25 mm (~1"), 30:30 mm, 35:35 mm, 40:40 mm, 50:50 mm (~2"), 60:60 mm, 75:75 mm] @show_if(part_type=bolt, thread_coverage=partial_grip)
+shoulder_grip_len = 21;
+
+// Total Shank / Rod Length [6:6 mm (~1/4"), 8:8 mm (~5/16"), 10:10 mm (~3/8"), 12:12 mm (~1/2"), 16:16 mm (~5/8"), 20:20 mm (~3/4"), 25:25 mm (~1"), 27.5:27.5 mm (21mm + 6.5mm M8 Nut), 30:30 mm (~1-1/4"), 35:35 mm, 40:40 mm (~1-1/2"), 45:45 mm, 50:50 mm (~2"), 60:60 mm (~2-1/2"), 75:75 mm (~3"), 100:100 mm (~4"), 125:125 mm (~5"), 150:150 mm (~6")] @show_if(part_type=rod|bolt, thread_coverage=full|partial_total)
 length = 25;
 
-// Thread Coverage [full:Fully Threaded, partial:Partially Threaded (Smooth Shoulder)] @show_if(part_type=bolt)
-thread_coverage = "full";
-
-// Partial Thread Length [nut_match:Match Standard Nut Thickness (Flush Back), 2:2 mm, 4:4 mm, 6:6 mm, 8:8 mm, 10:10 mm, 12:12 mm, 15:15 mm, 20:20 mm, 25:25 mm, 30:30 mm, 40:40 mm, 50:50 mm] @show_if(part_type=bolt, thread_coverage=partial)
+// Threaded Tip Length (Beyond Positive Shoulder Stop) [nut_match:Match Standard Nut Thickness (100% Flush Back — Zero Protrusion!), 4:4 mm, 6:6 mm, 8:8 mm, 10:10 mm, 12:12 mm, 15:15 mm, 20:20 mm, 25:25 mm, 30:30 mm, 40:40 mm] @show_if(part_type=bolt, thread_coverage=partial_grip|partial_total)
 thread_len = "nut_match";
 
 /* [4. Nut Options] */
 // Nut Profile [normal:Standard Hex Nut, thin:Thin Jam Nut, thick:Thick Heavy Nut, custom:Custom Thickness] @show_if(part_type=nut)
 nut_style = "normal";
+
+// Nut Internal Thread Entry Bevel [standard:Standard Beveled Entry (Easy Start), minimal:Minimal Entry Bevel (Maximizes Thread Engagement)] @show_if(part_type=nut)
+nut_inner_bevel = "standard";
 
 // Metric Nut Wrench Size (Across Flats) [auto:Auto (ISO Standard for Thread), 3.2:3.2 mm (M1.6), 4.0:4.0 mm (M2), 5.0:5.0 mm (M2.5), 5.5:5.5 mm (M3), 7.0:7.0 mm (M4), 8.0:8.0 mm (M5), 10.0:10.0 mm (M6), 13.0:13.0 mm (M8), 15.0:15.0 mm (M10 Alt), 16.0:16.0 mm (M10 ISO), 17.0:17.0 mm (M10 DIN), 18.0:18.0 mm (M12 ISO), 19.0:19.0 mm (M12 DIN), 21.0:21.0 mm (M14), 24.0:24.0 mm (M16), 30.0:30.0 mm (M20)] @show_if(part_type=nut, unit_system=metric)
 metric_nut_af = "auto";
@@ -90,6 +96,7 @@ spec_str = (unit_system == "metric") ? metric_size : imperial_size;
 
 base_info = screw_info(spec_str);
 nom_diam = struct_val(base_info, "diameter");
+pitch_val = struct_val(base_info, "pitch");
 
 std_n_info = nut_info(spec_str, shape = "hex", thickness = "normal");
 std_nut_af = struct_val(std_n_info, "width");
@@ -188,14 +195,26 @@ std_head_h = (head_type == "socket") ? nom_diam * 0.90 :
 head_h = (head_height_override == "auto") ? std_head_h : max(0.1, parse_num(str(head_height_override)));
 recess_depth = min(head_h * 0.75, max(0.2, head_h * 0.64));
 
-// Support exact sub-millimeter lengths (e.g. 0.87mm shank with 0.25mm threads) without artificial floor overrides!
-shank_len = max(0.05, length);
+// RESOLVE EXACT SHOULDER GRIP vs THREAD LENGTH:
+// Why your previous M8 bolt tightened to 19.1mm instead of 21.0mm:
+// 1. BOSL2's `screw()` starts with a 1.5-pitch thread lead-in taper at the bottom of the threads.
+// 2. BOSL2's `nut()` has a countersunk entry bevel (`ibev`) + thread slop (`4 * $slop`), allowing the nut to ride ~1.9mm up onto an 8.0mm cylinder!
+// THE FIX:
+// - We embed the bottom of the threaded rod 1.5 pitches DOWN inside the smooth shoulder so full-depth threads begin right at the shoulder line,
+// - AND we place a positive mechanical Thread-Stop Shoulder (`nom_diam + printer_slop * 3.0` OD) at the exact top of the unthreaded shoulder (`Z = smooth_shoulder_len`) so the nut's front face Physically Stops at your exact target grip length (e.g. 21.0 mm) and the bolt tip sits 100% flush with the back of the nut!
 parsed_t_len = parse_num(str(thread_len));
-req_partial_len = (str(thread_len) == "nut_match" || is_undef(parsed_t_len)) ? std_nut_h : max(0.02, parsed_t_len);
-t_len = (thread_coverage == "full") ? shank_len : min(shank_len, req_partial_len);
-smooth_shoulder_len = max(0, shank_len - t_len);
+target_t_len = (str(thread_len) == "nut_match" || is_undef(parsed_t_len)) ? std_nut_h : max(0.05, parsed_t_len);
 
-// Auto-disable end bevel if thread length is shorter than 1.2mm so tiny micro-threads aren't beveled away
+smooth_shoulder_len = (thread_coverage == "full") ? 0 :
+                      (thread_coverage == "partial_grip") ? max(0.5, shoulder_grip_len) :
+                      max(0, max(0.05, length) - target_t_len);
+
+t_len = (thread_coverage == "full") ? max(0.05, length) :
+        (thread_coverage == "partial_grip") ? target_t_len :
+        min(max(0.05, length), target_t_len);
+
+total_shank_len = smooth_shoulder_len + t_len;
+
 safe_bevel = (t_len < 1.5) ? false : bevel_ends;
 head_chamfer = min(0.3, head_h * 0.2);
 
@@ -206,9 +225,9 @@ drive_summary = (head_type == "hex") ? str("Hex Wrench: ", round(eff_head_af*100
                 (drive_type == "combo") ? str("Combo ", eff_ph, " + ", eff_slot_w, " mm Slot") :
                 str("Slotted Blade: ", eff_slot_w, " mm Wide");
 
-thread_summary = (part_type == "bolt" && thread_coverage == "partial")
-    ? str("  |  Shank: ", shank_len, " mm (", t_len, " mm Threaded + ", round(smooth_shoulder_len*1000)/1000, " mm Smooth)")
-    : str("  |  Length: ", shank_len, " mm");
+thread_summary = (part_type == "bolt" && thread_coverage != "full")
+    ? str("  |  Exact Grip Stop: ", round(smooth_shoulder_len*100)/100, " mm + ", round(t_len*100)/100, " mm Flush Thread (Total Shank: ", round(total_shank_len*100)/100, " mm)")
+    : str("  |  Length: ", round(total_shank_len*100)/100, " mm");
 
 echo(str("[SPEC] ", spec_str, "  |  Tool: ", drive_summary, "  |  Nut Flats: ", round(eff_nut_af*100)/100, " mm", thread_summary));
 
@@ -274,6 +293,7 @@ module cut_drive_recess() {
 if (part_type == "bolt") {
     difference() {
         union() {
+            // 1. Bolt Head resting flush on Z=0
             if (head_type == "socket") {
                 cylinder(d = head_od, h = head_h, chamfer1 = head_chamfer, chamfer2 = head_chamfer, anchor = BOTTOM);
             } else if (head_type == "hex") {
@@ -289,13 +309,42 @@ if (part_type == "bolt") {
                 cylinder(d1 = head_od, d2 = nom_diam, h = head_h, chamfer1 = head_chamfer * 0.6, anchor = BOTTOM);
             }
 
+            // 2. Shank & Threads
             up(head_h) {
-                if (thread_coverage == "partial" && smooth_shoulder_len > 0) {
-                    cylinder(d = nom_diam - printer_slop * 0.4, h = smooth_shoulder_len, anchor = BOTTOM);
-                    up(smooth_shoulder_len)
-                        screw(spec = spec_str, head = "none", length = t_len, bevel = safe_bevel, anchor = BOTTOM, orient = UP);
+                if (thread_coverage != "full" && smooth_shoulder_len > 0) {
+                    // Embed bottom of thread 1.5 pitches down inside the shoulder so there is ZERO unthreaded/tapered gap above the shoulder!
+                    embed_overlap = min(smooth_shoulder_len * 0.8, pitch_val * 1.5);
+                    stop_od = nom_diam + (printer_slop * 2.8);
+                    stop_taper_h = min(smooth_shoulder_len * 0.4, 1.2);
+
+                    // Main unthreaded smooth shoulder (exact nominal diameter so it slides through M8 clearance holes & washers!)
+                    cylinder(d = nom_diam, h = smooth_shoulder_len, anchor = BOTTOM);
+
+                    // Positive Nut-Stop Collar right at the top of the shoulder (Z = smooth_shoulder_len):
+                    // Fills the nut's entry countersink bevel so the nut dead-stops at EXACTLY `smooth_shoulder_len` (e.g. 21.0 mm)!
+                    up(smooth_shoulder_len - stop_taper_h)
+                        cylinder(d1 = nom_diam, d2 = stop_od, h = stop_taper_h, anchor = BOTTOM);
+
+                    // Threaded tip extending exactly `t_len` (6.5mm for M8) above the stop collar so the bolt back is 100% flush with the nut!
+                    up(smooth_shoulder_len - embed_overlap)
+                        screw(
+                            spec = spec_str,
+                            head = "none",
+                            length = t_len + embed_overlap,
+                            bevel1 = false,
+                            bevel2 = safe_bevel,
+                            anchor = BOTTOM,
+                            orient = UP
+                        );
                 } else {
-                    screw(spec = spec_str, head = "none", length = shank_len, bevel = safe_bevel, anchor = BOTTOM, orient = UP);
+                    screw(
+                        spec = spec_str,
+                        head = "none",
+                        length = total_shank_len,
+                        bevel = safe_bevel,
+                        anchor = BOTTOM,
+                        orient = UP
+                    );
                 }
             }
         }
@@ -305,7 +354,7 @@ if (part_type == "bolt") {
     screw(
         spec = spec_str,
         head = "none",
-        length = shank_len,
+        length = max(0.05, length),
         thread = true,
         bevel = safe_bevel,
         anchor = BOTTOM
@@ -317,6 +366,7 @@ if (part_type == "bolt") {
         width = (nut_af_sel == "auto") ? undef : eff_nut_af,
         thickness = (nut_style == "custom") ? custom_nut_height : nut_style,
         bevel = (nut_style == "custom" && custom_nut_height < 1.5) ? false : bevel_ends,
+        ibevel = (nut_inner_bevel == "minimal") ? false : true,
         anchor = BOTTOM
     );
 } else if (part_type == "washer") {
