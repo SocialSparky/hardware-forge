@@ -1,3 +1,4 @@
+import uuid
 import os
 import re
 import json
@@ -639,3 +640,160 @@ def export_kit_clean(filename: str):
         filename=safe_name,
         headers={"Content-Disposition": f'attachment; filename="{safe_name}"'}
     )
+
+
+import struct, zipfile, xml.etree.ElementTree as ET
+
+def parse_binary_or_ascii_stl(stl_path):
+    """Returns (vertices_list, triangles_list) from an OpenSCAD STL file."""
+    with open(stl_path, "rb") as f:
+        data = f.read()
+    verts = []
+    tris = []
+    v_map = {}
+    def get_vid(pt):
+        key = (round(pt[0], 4), round(pt[1], 4), round(pt[2], 4))
+        if key not in v_map:
+            v_map[key] = len(verts)
+            verts.append(key)
+        return v_map[key]
+
+    # Check if ASCII STL
+    if data[:5] == b"solid" and b"facet" in data[:500]:
+        text = data.decode("utf-8", errors="ignore")
+        cur_tri = []
+        for line in text.splitlines():
+            line = line.strip()
+            if line.startswith("vertex "):
+                parts = line.split()
+                pt = (float(parts[1]), float(parts[2]), float(parts[3]))
+                cur_tri.append(get_vid(pt))
+                if len(cur_tri) == 3:
+                    tris.append((cur_tri[0], cur_tri[1], cur_tri[2]))
+                    cur_tri = []
+    else:
+        num_tris = struct.unpack("<I", data[80:84])[0]
+        offset = 84
+        for _ in range(num_tris):
+            if offset + 50 > len(data):
+                break
+            vals = struct.unpack("<12fH", data[offset:offset+50])
+            v1 = get_vid((vals[3], vals[4], vals[5]))
+            v2 = get_vid((vals[6], vals[7], vals[8]))
+            v3 = get_vid((vals[9], vals[10], vals[11]))
+            tris.append((v1, v2, v3))
+            offset += 50
+    return verts, tris
+
+@app.post("/api/export_multicolor_3mf")
+async def export_multicolor_3mf(req: dict):
+    """Compiles 1_Box_Body, 2_Lid_Frame, and 3_Lid_Text into a single grouped 3-Object .3MF file for OrcaSlicer!"""
+    gen_name = req.get("generator", "06_boxes_organizers.scad")
+    params = dict(req.get("params", {}))
+    colors = req.get("colors", {"box": "#1e293b", "frame": "#f59e0b", "text": "#38bdf8"})
+    open_in_orca = req.get("open_in_orca", False)
+
+    scad_path = os.path.join(GENERATORS_DIR, gen_name)
+    ts = int(time.time() * 1000)
+    r_main = params.get("render_part", "both")
+    if r_main in ("inlay_text_only", "inlay_frame_only"):
+        r_main = "both"
+    parts_to_build = [
+        ("1_Box_And_Lid_Body", r_main, colors.get("box", "#1e293b")),
+    ]
+    if params.get("lid_label_mode") == "multicolor_inlay" and params.get("render_part") != "base":
+        if params.get("lid_frame_style", "rounded_box") != "none":
+            parts_to_build.append(("2_Lid_Border_Frame", "inlay_frame_only", colors.get("frame", "#f59e0b")))
+        if str(params.get("lid_text_line1", "")).strip() or str(params.get("lid_text_line2", "")).strip():
+            parts_to_build.append(("3_Lid_Wording_Text", "inlay_text_only", colors.get("text", "#38bdf8")))
+
+    mesh_objects = []
+    for idx, (obj_label, r_mode, hex_col) in enumerate(parts_to_build, start=1):
+        sub_p = dict(params)
+        sub_p["render_part"] = r_mode
+        if idx == 1 and sub_p.get("lid_label_mode") == "multicolor_inlay":
+            sub_p["lid_label_mode"] = "debossed"
+        stl_tmp = os.path.join(OUTPUT_DIR, f"tmp_{ts}_{idx}.stl")
+        cmd = ["openscad", "-o", stl_tmp]
+        for k, v in sub_p.items():
+            if isinstance(v, bool):
+                cmd += ["-D", f"{k}={'true' if v else 'false'}"]
+            elif isinstance(v, (int, float)):
+                cmd += ["-D", f"{k}={v}"]
+            else:
+                esc = str(v).replace('"', '\"')
+                cmd += ["-D", f'{k}="{esc}"']
+        cmd.append(scad_path)
+        subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if os.path.exists(stl_tmp):
+            v_list, t_list = parse_binary_or_ascii_stl(stl_tmp)
+            os.remove(stl_tmp)
+            if v_list and t_list:
+                mesh_objects.append((idx, obj_label, hex_col, v_list, t_list))
+
+    out_3mf_name = f"hardware_forge_multicolor_{ts}.3mf"
+    out_3mf_path = os.path.join(OUTPUT_DIR, out_3mf_name)
+
+    # Build 3MF XML model with a single Assembly Object containing 3 pre-aligned sub-objects (so OrcaSlicer keeps them locked in place AND grouped by color!)
+    model_xml = ['<?xml version="1.0" encoding="UTF-8"?>']
+    model_xml.append('<model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02" xmlns:BambuStudio="http://schemas.bambulab.com/package/2021">')
+    model_xml.append('  <resources>')
+
+    comp_refs = []
+    for oid, olabel, hcol, v_list, t_list in mesh_objects:
+        model_xml.append(f'    <object id="{oid}" name="{olabel}" type="model">')
+        model_xml.append('      <mesh>')
+        model_xml.append('        <vertices>')
+        for vx, vy, vz in v_list:
+            model_xml.append(f'          <vertex x="{vx}" y="{vy}" z="{vz}" />')
+        model_xml.append('        </vertices>')
+        model_xml.append('        <triangles>')
+        for v1, v2, v3 in t_list:
+            model_xml.append(f'          <triangle v1="{v1}" v2="{v2}" v3="{v3}" />')
+        model_xml.append('        </triangles>')
+        model_xml.append('      </mesh>')
+        model_xml.append('    </object>')
+        comp_refs.append((oid, olabel))
+
+    # Parent assembly object (ID 99) so OrcaSlicer loads all 3 parts as a single aligned multi-part object!
+    model_xml.append('    <object id="99" name="Hardware_Forge_MultiColor_Box" type="model">')
+    model_xml.append('      <components>')
+    for oid, _ in comp_refs:
+        model_xml.append(f'        <component objectid="{oid}" transform="1 0 0 0 1 0 0 0 1 0 0 0" />')
+    model_xml.append('      </components>')
+    model_xml.append('    </object>')
+    model_xml.append('  </resources>')
+    model_xml.append('  <build>')
+    model_xml.append('    <item objectid="99" />')
+    model_xml.append('  </build>')
+    model_xml.append('</model>')
+
+    rels_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Target="/3D/3dmodel.model" Id="rel0" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel" />
+</Relationships>"""
+
+    ctypes_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml" />
+  <Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml" />
+</Types>"""
+
+    # Also include Bambu/OrcaSlicer model_settings.config so each part's name & extruder slot (1, 2, 3) is pre-assigned in Orca's Objects list!
+    settings_xml = ['<?xml version="1.0" encoding="UTF-8"?>', '<config>', '  <object id="99">', '    <metadata key="name" value="Hardware_Forge_MultiColor_Box"/>']
+    for oid, olabel in comp_refs:
+        ext_num = 1 if oid == 1 else 2
+        settings_xml.append(f'    <part id="{oid}" subtype="normal_part">')
+        settings_xml.append(f'      <metadata key="name" value="{olabel}"/>')
+        settings_xml.append(f'      <metadata key="extruder" value="{ext_num}"/>')
+        settings_xml.append('    </part>')
+    settings_xml.append('  </object>')
+    settings_xml.append('</config>')
+
+    with zipfile.ZipFile(out_3mf_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("[Content_Types].xml", ctypes_xml)
+        zf.writestr("_rels/.rels", rels_xml)
+        zf.writestr("3D/3dmodel.model", "\n".join(model_xml))
+        zf.writestr("Metadata/model_settings.config", "\n".join(settings_xml))
+
+    return {"url": f"/output/{out_3mf_name}", "filename": out_3mf_name}

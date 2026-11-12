@@ -2,6 +2,13 @@
 
 All notable changes to **Hardware Forge** are documented in this file.
 
+## [v1.2.2] - 2026-11-12
+### Added & Improved
+- **Heavy-Duty Washboard Friction Clasp (`06_boxes_organizers.scad`):** Replaced the thin vertical latch with a 3.4 mm gusseted friction tab and 5 interlocking 45° support-free washboard ridges on the base wall, complete with adjustable `clasp_bite` grip tension (`0.45 mm`, `0.65 mm`, `0.85 mm`) and protective side guide cheeks.
+- **Interactive 2D Lid Engraved Cutout Designer (`box_designer.js`, `06_boxes_organizers.scad`):** Added a live 2D Lid Top Designer with ghost cubby divider overlays, mouse drag-to-move wording, drag-to-scale font handles, and draggable border frame margins that engrave cleanly into the Z=0 build-plate face of the slim 8 mm lid.
+- **Category-Filtered Full-State Preset Manager (`box_designer.js`):** Preset dropdown now filters automatically by the active generator category and captures/restores all custom numeric inputs, 2D cubby layouts, and 2D lid cutout layouts.
+- **Live Frontend Volume Mounts (`docker-compose.yml`):** Added direct volume mounts for `./app/templates` and `./app/static` to keep host and container UI files synchronized.
+
 ## [v1.2.1] - 2026-11-12
 ### Added & Fixed
 - **Universal 9-Category 2D Interactive Schematic Suite (`box_designer.js`):** Self-initializing DOM `MutationObserver` hooks providing live 2D blueprints and interactive sliders across Boxes (`06`), Fasteners (`01`), Standoffs (`04`), Clamps (`07`), Brackets (`08`), Knobs (`09`), Enclosures (`10`), Gauges (`11`), and Gaskets (`12`).

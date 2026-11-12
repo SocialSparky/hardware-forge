@@ -1,0 +1,42 @@
+[
+  {
+    "name": "Treasure Box",
+    "preset_type": "part",
+    "generator": "06_boxes_organizers.scad",
+    "params": {
+      "box_style": "hinged_box",
+      "render_part": "both",
+      "drawer_render_mode": "both",
+      "outer_width": 70,
+      "outer_depth": 35,
+      "base_height": 25,
+      "lid_height": 12,
+      "wall_thick": 1.6,
+      "corner_radius": 6,
+      "lid_label_mode": "multicolor_inlay",
+      "lid_text_line1": "TREASURES",
+      "lid_text_line2": "",
+      "lid_font": "Liberation Mono",
+      "lid_text_size": 6,
+      "lid_frame_style": "rounded_box",
+      "inlay_depth": 0.6,
+      "latch_type": "pip_cam_latch",
+      "slide_lock_style": "detent",
+      "thumb_grip": true,
+      "drawer_cols": 2,
+      "drawer_rows": 2,
+      "handle_style": "lip_pull",
+      "stackable_cabinet": true,
+      "wall_mount_holes": true,
+      "cols": 3,
+      "rows": 2,
+      "divider_thick": 1.6,
+      "scooped_bottom": true,
+      "layout_spec": "30.7:31.8,31.8|30.7:31.8,31.8|30.6:31.8,31.8",
+      "drawer_slot_spec": "",
+      "gift_texture": "fluted",
+      "printer_slop": 0.2
+    },
+    "items": []
+  }
+]

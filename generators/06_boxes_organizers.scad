@@ -1,7 +1,7 @@
 include <BOSL2/std.scad>
 
 /* [1. Container Category & Render Mode] */
-// Select System Style [hinged_box:Durable Hinged Utility Case (Snap-Together Hinge + Anti-Mix Lid), slide_box:Slide-On Track Cover Utility Box (Dovetail Rail + Anti-Mix Seal), drawer_system:Modular Drawer Cabinet & Pull-Out Drawers, organizer_tray:Open Drawer / Parts Organizer Tray, gift_box:Fluted / Classic Gift Box with Slip Lid]
+// Select System Style [hinged_box:Hinged Utility Case (8mm Slim Lid + Heavy-Duty Friction Clasp!), slide_box:Slide-On Track Cover Utility Box (Dovetail Rail + Anti-Mix Seal), drawer_system:Modular Drawer Cabinet & Pull-Out Drawers, organizer_tray:Open Drawer / Parts Organizer Tray, gift_box:Fluted / Classic Gift Box with Slip Lid]
 box_style = "hinged_box";
 
 // Which Part(s) to Render (Hinged, Slide & Gift Box) [both:Both Base & Lid Side-by-Side, base:Base / Bottom Only, lid:Lid / Cover Only] @show_if(box_style=hinged_box|slide_box|gift_box)
@@ -20,7 +20,7 @@ outer_depth = 70;
 // Base / Cabinet Total Height - Z Axis [15:15 mm (Shallow), 20:20 mm, 25:25 mm (~1"), 30:30 mm, 35:35 mm, 40:40 mm (~1.5"), 50:50 mm (~2"), 60:60 mm, 80:80 mm (~3.1"), 100:100 mm (~4"), 120:120 mm]
 base_height = 30;
 
-// Lid Height - Z Axis (For Hinged & Gift Box) [8:8 mm (Low Profile Lid), 10:10 mm, 12:12 mm (Standard Lid), 15:15 mm, 20:20 mm (Deep Clamshell Lid), 25:25 mm, 30:30 mm] @show_if(box_style=hinged_box|gift_box)
+// Gift Box Lid Height - Z Axis [8:8 mm, 12:12 mm (Standard), 15:15 mm, 20:20 mm] @show_if(box_style=gift_box)
 lid_height = 12;
 
 // Outer Wall Thickness [1.6:1.6 mm (Light / 4 Walls), 2.0:2.0 mm (Standard), 2.4:2.4 mm (Durable Case), 3.0:3.0 mm (Heavy Duty Rugged), 4.0:4.0 mm (Armor Box)]
@@ -29,28 +29,59 @@ wall_thick = 2.4;
 // Outer Corner Rounding Radius [2:2 mm (Crisp), 4:4 mm (Standard), 6:6 mm (Smooth), 10:10 mm (Wide Rounded), 15:15 mm (Extra Wide Rounded)]
 corner_radius = 4;
 
-/* [3. Hinged Case Options (Original Snap-Post Hinge with Swing Clearance)] */
-// Front Closure Clasp [snap_lip:Cantilever Snap-Hook Clasp, lug_m3:Heavy-Duty M3 Bolted Latch Ears, none:No Latch (Free Swinging)] @show_if(box_style=hinged_box)
-latch_type = "snap_lip";
+/* [3. Lid Top Engraved Cutout Options] */
+// Lid Top Label Mode [debossed:Recessed Engraved Cutout (On), none:Plain Smooth Lid (Off)] @show_if(box_style=hinged_box|slide_box|gift_box)
+lid_label_mode = "debossed";
 
-// Matching Lid Compartment Dividers [flush_seal:Flush Anti-Mix Lid Dividers (Seals Every Cubby Shut When Closed!), recessed:Half-Height Lid Dividers, none:Open Hollow Lid (No Lid Dividers)] @show_if(box_style=hinged_box)
-lid_divider_style = "flush_seal";
+// Lid Label Text (Line 1) @show_if(lid_label_mode=debossed)
+lid_text_line1 = "M5 HARDWARE";
 
-/* [4. Slide-On Cover Options (For Slide Box)] */
-// Detent Click-Lock Retention [detent:Positive Click-Stop Detent Bump (Keeps Lid Closed in Bag!), smooth:Smooth Free-Sliding Track (No Detent Bump)] @show_if(box_style=slide_box)
+// Lid Sub-Label Text (Line 2 — Optional) @show_if(lid_label_mode=debossed)
+lid_text_line2 = "";
+
+// Font Style [Liberation Sans:style=Bold:Bold Industrial Sans, Liberation Mono:style=Bold:Tech Monospace Bold, DejaVu Sans:style=Bold:Heavy Wide Sans, Liberation Serif:style=Bold:Classic Bold Serif] @show_if(lid_label_mode=debossed)
+lid_font = "Liberation Sans:style=Bold";
+
+// Main Text Size (Height in mm) [6:6 mm, 8:8 mm, 10:10 mm, 12:12 mm, 15:15 mm, 18:18 mm] @show_if(lid_label_mode=debossed)
+lid_text_size = 10;
+
+// Decorative Frame Style [rounded_box:Rounded Tech Border Frame, chamfer_tag:Chamfered Octagon Plate, double_line:Double Pinstripe Frame, corner_brackets:Corner Target Brackets, none:No Frame (Text Only)] @show_if(lid_label_mode=debossed)
+lid_frame_style = "rounded_box";
+
+// Engraved Cutout Depth [0.4:0.40 mm (2 Layers), 0.6:0.60 mm (3 Layers — Crisp!), 0.8:0.80 mm (4 Layers — Deep)] @show_if(lid_label_mode=debossed)
+inlay_depth = 0.6;
+
+// Text Horizontal Offset X (mm) @show_if(lid_label_mode=debossed)
+lid_text_x = 0.0;
+
+// Text Vertical Offset Y (mm) @show_if(lid_label_mode=debossed)
+lid_text_y = 0.0;
+
+// Frame X Margin from Outer Edge (mm) @show_if(lid_label_mode=debossed)
+lid_frame_margin_x = 8.0;
+
+// Frame Y Margin from Outer Edge (mm) @show_if(lid_label_mode=debossed)
+lid_frame_margin_y = 8.0;
+
+/* [4. Heavy-Duty Friction Clasp Options (For Hinged Box)] */
+// Friction Bite / Grip Tension [0.45:Light Grip (Easy One-Handed Flip), 0.65:Standard Positive Grip (Recommended), 0.85:Heavy Firm Grip (Extra Tight Hold)] @show_if(box_style=hinged_box)
+clasp_bite = 0.65;
+
+/* [5. Slide-On Cover Options (For Slide Box)] */
+// Detent Click-Lock Retention [detent:Positive Click-Stop Detent Bump, smooth:Smooth Free-Sliding Track] @show_if(box_style=slide_box)
 slide_lock_style = "detent";
 
 // Include Thumb-Push Grip Grooves on Top of Lid @show_if(box_style=slide_box)
 thumb_grip = true;
 
-/* [5. Modular Drawer System Options] */
+/* [6. Modular Drawer System Options] */
 // Drawer Columns Wide (X) [1:1 Drawer Wide, 2:2 Drawers Wide, 3:3 Drawers Wide, 4:4 Drawers Wide] @show_if(box_style=drawer_system)
 drawer_cols = 2;
 
 // Drawer Tiers Tall (Z) [1:1 Tier Tall, 2:2 Tiers Tall, 3:3 Tiers Tall, 4:4 Tiers Tall, 5:5 Tiers Tall] @show_if(box_style=drawer_system)
 drawer_rows = 2;
 
-// Pull-Out Handle Style [lip_pull:Ergonomic Curved Finger Lip Pull, d_loop:Heavy D-Ring Loop Handle, label_pull:Label-Frame Pull Handle (Slide-in Label Slot!), recessed_scoop:Flush Half-Moon Thumb Cutout, round_knob:Classic Chamfered Round Knob] @show_if(box_style=drawer_system)
+// Pull-Out Handle Style [lip_pull:Ergonomic Curved Finger Lip Pull, d_loop:Heavy D-Ring Loop Handle, label_pull:Label-Frame Pull Handle, recessed_scoop:Flush Half-Moon Thumb Cutout, round_knob:Classic Chamfered Round Knob] @show_if(box_style=drawer_system)
 handle_style = "lip_pull";
 
 // Stackable Interlocking Cabinet Lugs (Top & Bottom) @show_if(box_style=drawer_system)
@@ -59,7 +90,7 @@ stackable_cabinet = true;
 // Rear Keyhole Wall-Mount Slots @show_if(box_style=drawer_system)
 wall_mount_holes = true;
 
-/* [6. Internal Compartment Layout (Use Visual 2D Designer Above!)] */
+/* [7. Internal Compartment Layout] */
 // Number of Columns (Left to Right - X) [1:1 Column, 2:2 Columns, 3:3 Columns, 4:4 Columns, 5:5 Columns, 6:6 Columns, 7:7 Columns, 8:8 Columns] @show_if(box_style=hinged_box|slide_box|organizer_tray|drawer_system)
 cols = 3;
 
@@ -78,21 +109,21 @@ layout_spec = "";
 // Drawer Cabinet Slot Layout Spec @show_if(box_style=drawer_system)
 drawer_slot_spec = "";
 
-/* [7. Gift Box Styling] */
+/* [8. Gift Box Styling] */
 // Gift Box Exterior Wall Texture [fluted:Vertical Fluted Ribs (Elegant), smooth:Smooth Classic Walls] @show_if(box_style=gift_box)
 gift_texture = "fluted";
 
-/* [8. 3D Print Clearance] */
-// Hinge / Track / Drawer Clearance [0.12:0.12 mm (Snug Precision), 0.16:0.16 mm (Standard PLA/PETG), 0.20:0.20 mm (Easy Snap / Free Hinge), 0.25:0.25 mm (Loose Fit)]
+/* [9. 3D Print Clearance] */
+// Hinge / Track / Drawer Clearance [0.15:0.15 mm (Snug), 0.20:0.20 mm (Standard PLA/PETG), 0.25:0.25 mm (Easy Fit), 0.30:0.30 mm (Loose)]
 printer_slop = 0.20;
 
 /* [Hidden] */
 $fn = 48;
 
-W = max(30, outer_width);
-D = max(30, outer_depth);
+W = max(35, outer_width);
+D = max(35, outer_depth);
 H_base = max(12, base_height);
-H_lid  = max(7, lid_height);
+H_lid  = max(6, lid_height);
 T = max(1.6, wall_thick);
 R = min(corner_radius, min(W, D) * 0.35);
 
@@ -155,6 +186,88 @@ function parse_2d_layout(spec_str, default_cols, default_rows, inner_w, inner_d,
         ]
     )
     [col_widths, col_rows_list];
+
+// =============================================================================
+// 2D LID ENGRAVED CUTOUT GENERATORS (WORDING + BORDER FRAME AT Z=0)
+// =============================================================================
+module lid_inlay_text_2d() {
+    t1 = str_strip(str(lid_text_line1), " ");
+    t2 = str_strip(str(lid_text_line2), " ");
+    has_t1 = (len(t1) > 0);
+    has_t2 = (len(t2) > 0);
+
+    mirror([1, 0, 0])
+    translate([lid_text_x, lid_text_y]) {
+        if (has_t1 && has_t2) {
+            translate([0, lid_text_size * 0.52])
+                text(text = t1, size = lid_text_size, font = lid_font, halign = "center", valign = "center");
+            translate([0, -lid_text_size * 0.62])
+                text(text = t2, size = lid_text_size * 0.68, font = lid_font, halign = "center", valign = "center");
+        } else if (has_t1) {
+            text(text = t1, size = lid_text_size, font = lid_font, halign = "center", valign = "center");
+        } else if (has_t2) {
+            text(text = t2, size = lid_text_size * 0.75, font = lid_font, halign = "center", valign = "center");
+        }
+    }
+}
+
+module lid_inlay_frame_2d(box_w, box_d) {
+    mx = max(3.0, lid_frame_margin_x);
+    my = max(3.0, lid_frame_margin_y);
+    fw = max(16, box_w - mx * 2);
+    fd = max(14, box_d - my * 2);
+    f_thick = 2.0;
+
+    if (lid_frame_style == "rounded_box") {
+        difference() {
+            offset(r = 3.5) square([fw - 7, fd - 7], center = true);
+            offset(r = 3.5 - f_thick) square([fw - 7, fd - 7], center = true);
+        }
+    } else if (lid_frame_style == "chamfer_tag") {
+        difference() {
+            hull() {
+                square([fw - 8, fd], center = true);
+                square([fw, fd - 8], center = true);
+            }
+            hull() {
+                square([fw - 8 - f_thick*2, fd - f_thick*2], center = true);
+                square([fw - f_thick*2, fd - 8 - f_thick*2], center = true);
+            }
+        }
+    } else if (lid_frame_style == "double_line") {
+        difference() {
+            offset(r = 3.0) square([fw - 6, fd - 6], center = true);
+            offset(r = 3.0 - 1.2) square([fw - 6, fd - 6], center = true);
+        }
+        difference() {
+            offset(r = 1.5) square([fw - 12, fd - 12], center = true);
+            offset(r = 1.5 - 1.0) square([fw - 12, fd - 12], center = true);
+        }
+    } else if (lid_frame_style == "corner_brackets") {
+        difference() {
+            offset(r = 2.5) square([fw - 5, fd - 5], center = true);
+            offset(r = 2.5 - f_thick) square([fw - 5, fd - 5], center = true);
+            square([fw * 0.55, fd + 4], center = true);
+            square([fw + 4, fd * 0.48], center = true);
+        }
+    }
+}
+
+// Cleanly carves the Engraved Cutout into Z=0 of the Lid
+module apply_lid_inlay(box_w, box_d) {
+    if (lid_label_mode == "none") {
+        children();
+    } else {
+        difference() {
+            children();
+            translate([0, 0, -0.05])
+                linear_extrude(height = inlay_depth + 0.05) {
+                    if (lid_frame_style != "none") lid_inlay_frame_2d(box_w, box_d);
+                    lid_inlay_text_2d();
+                }
+        }
+    }
+}
 
 module compartment_cutouts(inner_w, inner_d, inner_r, height, wall, c_count, r_count, div_t, scoop, l_spec = "", flip_y = false, top_relief = 0) {
     parsed = parse_2d_layout(l_spec, c_count, r_count, inner_w, inner_d, div_t);
@@ -307,7 +420,8 @@ if (box_style == "organizer_tray") {
 
     if (render_part == "both" || render_part == "lid") {
         x_off = (render_part == "both") ? (W/2 + 6) : 0;
-        translate([x_off, 0, 0]) {
+        translate([x_off, 0, 0])
+        apply_lid_inlay(W, D) {
             difference() {
                 cuboid([W, D, H_lid], rounding = R, edges = "Z", anchor = BOTTOM);
                 up(T)
@@ -320,90 +434,101 @@ if (box_style == "organizer_tray") {
 
 } else if (box_style == "hinged_box") {
     // =========================================================================
-    // ORIGINAL 3-SEGMENT SNAP-POST HINGE (WITH CORRECTED ZERO-FULCRUM CLEARANCE)
+    // HINGED UTILITY CASE (8mm SLIM LID + ROBUST WASHBOARD FRICTION TAB CLASP)
     // =========================================================================
-    // Fixes applied to the original hinge design:
-    // 1. Cylindrical swing-clearance cutouts (`r = hinge_r + swing_clear`) carved into the Base's center rear wall
-    //    and the Lid's outer rear walls so the knuckles rotate 180 deg closed without hitting the opposing support web!
-    // 2. 45-degree rear rim relief chamfer along the hinge parting edge so print seams never lever the hinge upward.
-    // 3. Preserved original 3-segment snap-together cone geometry + center flex slot with exact Z/Y clasp alignment.
-    hinge_r = 4.0;
-    swing_clear = printer_slop + 0.35;
+    H_slim    = 8.0;
+    hinge_r   = 4.0;
+    pip_gap   = max(0.18, printer_slop);
+    swing_cl  = pip_gap + 0.35;
     hinge_len = max(28, W - (R * 2) - 10);
-    seg_len = (hinge_len - printer_slop * 3) / 3;
+    seg_len   = (hinge_len - pip_gap * 3) / 3;
 
-    catch_offset_from_rim = 3.0;
-    clasp_w = min(28, max(16, W * 0.32));
+    // Heavy-Duty Friction Clasp Dimensions
+    tab_w     = min(32, max(20, W * 0.32));
+    tab_t     = 3.4;                        // Thick, rugged 3.4mm tab body
+    bite      = clasp_bite;                 // Interference depth of the interlocking friction ridges (default 0.65mm)
 
-    base_div_relief = (lid_divider_style == "flush_seal") ? 0.18 : 0;
-    lid_div_relief  = (lid_divider_style == "flush_seal") ? 0.18 :
-                      (lid_divider_style == "recessed")   ? min(3.0, (H_lid - T) * 0.45) : 0;
+    echo(str("[SPEC] Hinged Case: ", W, "×", D, "×", H_base + H_slim, " mm  |  Heavy-Duty Ribbed Friction Clasp (Bite: ", bite, "mm)  |  Lid Cutout: ", lid_label_mode));
 
-    echo(str("[SPEC] Hinged Case: ", W, "×", D, "×", H_base + H_lid, " mm  |  Original Snap-Post Hinge (Zero-Fulcrum Clearance)  |  Lid: ", lid_divider_style));
-
-    // 1. BASE CONTAINER (Placed on Front -Y side of bed)
+    // -------------------------------------------------------------------------
+    // 1. BASE CONTAINER (Front -Y side of bed)
+    // -------------------------------------------------------------------------
     if (render_part == "both" || render_part == "base") {
         base_y = (render_part == "both") ? -(D/2 + hinge_r + 6) : 0;
         translate([0, base_y, 0]) {
             difference() {
                 union() {
-                    divided_box_body(W, D, H_base, T, R, cols, rows, divider_thick, scooped_bottom, layout_spec, flip_y = false, top_relief = base_div_relief);
+                    divided_box_body(W, D, H_base, T, R, cols, rows, divider_thick, scooped_bottom, layout_spec, flip_y = false, top_relief = 0.18);
 
-                    // Left & Right Outer Hinge Knuckles + Inward Snap Cones (Original Design)
+                    // Left & Right Outer Hinge Knuckles
                     for (side = [-1, 1]) {
-                        kx = side * (seg_len + printer_slop * 1.5);
+                        kx = side * (seg_len + pip_gap * 1.5);
                         hull() {
                             translate([kx, D/2 + hinge_r, H_base])
                                 rotate([0, 90, 0]) cylinder(r = hinge_r, h = seg_len, center = true);
                             translate([kx, D/2 - T * 0.35, max(0, H_base - hinge_r * 2.1)])
                                 cuboid([seg_len, T * 0.7, min(H_base, hinge_r * 2.1)], anchor = BOTTOM);
                         }
-                        stud_h = hinge_r * 0.48;
-                        translate([kx - side*(seg_len/2), D/2 + hinge_r, H_base])
-                            rotate([0, side < 0 ? 90 : -90, 0])
-                                cylinder(r1 = hinge_r * 0.52, r2 = hinge_r * 0.25, h = stud_h, chamfer2 = 0.4);
                     }
 
-                    // Front Catch Lip on Base (-Y wall)
-                    if (latch_type == "snap_lip") {
-                        translate([0, -D/2, H_base - catch_offset_from_rim])
+                    // WASHBOARD FRICTION PAD ON BASE FRONT WALL (-Y)
+                    // 5 horizontal 45° sawtooth friction ridges built into a reinforced front pad (Z = H_base - 8.5 to H_base - 1.5)
+                    // Flanked by two protective alignment cheeks so the lid tab centers itself and grips with high friction!
+                    // 1. Subtle 0.5mm thickened friction pad backing (supported by a 45° bottom bevel)
+                    translate([0, -D/2, H_base])
+                    rotate([0, 90, 0])
+                    linear_extrude(height = tab_w + 0.4, center = true)
+                        polygon([
+                            // Polygon X = distance below H_base (-Z), Polygon Y = +Y (into wall)
+                            [0.8,  0.2],
+                            [1.4, -0.45],
+                            [8.2, -0.45],
+                            [9.0,  0.2]
+                        ]);
+
+                    // 2. Five horizontal 45-degree friction teeth on the pad (1.2mm pitch, 100% support-free!)
+                    for (rz = [2.2, 3.4, 4.6, 5.8, 7.0]) {
+                        translate([0, -D/2 - 0.4, H_base - rz])
                         rotate([0, 90, 0])
-                        linear_extrude(height = clasp_w - 2, center = true)
+                        linear_extrude(height = tab_w, center = true)
                             polygon([
-                                [-2.2, 0],
-                                [ 0.0, -1.6],
-                                [ 1.4, -1.6],
-                                [ 2.6, 0]
+                                [-0.65,  0.1],
+                                [ 0.0,  -bite],   // Crisp horizontal friction crest
+                                [ 0.65,  0.1]
                             ]);
-                    } else if (latch_type == "lug_m3") {
-                        difference() {
-                            translate([0, -D/2 - 4, H_base - 6])
-                                cuboid([18, 8, 6], rounding = 2, edges = "Z", anchor = BOTTOM);
-                            translate([0, -D/2 - 4, H_base - 7])
-                                cylinder(d = 3.2, h = 10, anchor = BOTTOM);
-                        }
+                    }
+
+                    // 3. Left & Right Protective Side Guide Cheeks (prevent the tab from getting snagged from the side)
+                    for (side = [-1, 1]) {
+                        sx = side * (tab_w/2 + 2.2);
+                        translate([sx, -D/2, H_base])
+                        rotate([0, 90, 0])
+                        linear_extrude(height = 2.8, center = true)
+                            polygon([
+                                [0.0,  0.2],
+                                [0.8, -1.6],
+                                [7.2, -1.6],
+                                [9.2,  0.2]
+                            ]);
                     }
                 }
 
-                // CLEARANCE FIX 1 (BASE): Carve swing pocket ONLY into the Base's rear wall (Y <= D/2 + 1.2)
-                // and narrower than the cone tips, so the Lid's knuckle clears the wall while leaving the locking cones 100% intact!
+                // Center Swing-Clearance Pocket in Base Rear Wall
                 intersection() {
                     translate([0, D/2 + hinge_r, H_base])
                         rotate([0, 90, 0])
-                            cylinder(r = hinge_r + swing_clear, h = seg_len + printer_slop * 2.0, center = true);
+                            cylinder(r = hinge_r + swing_cl, h = seg_len + pip_gap * 2.0, center = true);
                     translate([0, D/2 - T, H_base - hinge_r * 2])
-                        cuboid([seg_len + printer_slop * 2.2, T * 2 + 2.0, hinge_r * 4], anchor = BOTTOM);
+                        cuboid([seg_len + pip_gap * 2.2, T * 2 + 2.0, hinge_r * 4], anchor = BOTTOM);
                 }
-
-                // CLEARANCE FIX 2 (BASE): Slight 45° rear outer rim relief chamfer along the center gap
                 translate([0, D/2, H_base])
                     rotate([45, 0, 0])
-                        cuboid([seg_len + printer_slop * 2.0, 1.4, 1.4], center = true);
+                        cuboid([seg_len + pip_gap * 2.0, 1.4, 1.4], center = true);
             }
 
-            // Re-affirm inward locking cones outside difference() so they are guaranteed 100% uncut!
+            // Uncut Inward Locking Cones on Base Outer Knuckles
             for (side = [-1, 1]) {
-                kx = side * (seg_len + printer_slop * 1.5);
+                kx = side * (seg_len + pip_gap * 1.5);
                 stud_h = hinge_r * 0.52;
                 translate([kx - side*(seg_len/2 - 0.2), D/2 + hinge_r, H_base])
                     rotate([0, side < 0 ? 90 : -90, 0])
@@ -412,105 +537,95 @@ if (box_style == "organizer_tray") {
         }
     }
 
-    // 2. LID COVER (Placed on Back +Y side of bed, with Y-Mirrored Dividers & Corrected Hinge Clearances)
+    // -------------------------------------------------------------------------
+    // 2. SLIM 8mm LID WITH HEAVY-DUTY RIBBED FRICTION TAB & ENGRAVED CUTOUT
+    // -------------------------------------------------------------------------
     if (render_part == "both" || render_part == "lid") {
         lid_y = (render_part == "both") ? (D/2 + hinge_r + 6) : 0;
         translate([0, lid_y, 0]) {
+            apply_lid_inlay(W, D)
             difference() {
                 union() {
-                    if (lid_divider_style == "none") {
-                        difference() {
-                            cuboid([W, D, H_lid], rounding = R, edges = "Z", anchor = BOTTOM);
-                            up(T)
-                                cuboid([W - 2*T, D - 2*T, H_lid + 1], rounding = max(1, R - T), edges = "Z", anchor = BOTTOM);
-                        }
-                    } else {
-                        divided_box_body(W, D, H_lid, T, R, cols, rows, divider_thick, scoop = false, l_spec = layout_spec, flip_y = true, top_relief = lid_div_relief);
-                    }
+                    divided_box_body(W, D, H_slim, T, R, cols, rows, divider_thick, scoop = false, l_spec = layout_spec, flip_y = true, top_relief = 0.18);
 
-                    // Center Hinge Knuckle at Lid Rim (Original Design)
+                    // Center Hinge Knuckle at Lid Rim
                     hull() {
-                        translate([0, -D/2 - hinge_r, H_lid])
+                        translate([0, -D/2 - hinge_r, H_slim])
                             rotate([0, 90, 0]) cylinder(r = hinge_r, h = seg_len, center = true);
-                        translate([0, -D/2 + T * 0.35, max(0, H_lid - hinge_r * 2.1)])
-                            cuboid([seg_len, T * 0.7, min(H_lid, hinge_r * 2.1)], anchor = BOTTOM);
+                        translate([0, -D/2 + T * 0.35, max(0, H_slim - hinge_r * 2.1)])
+                            cuboid([seg_len, T * 0.7, min(H_slim, hinge_r * 2.1)], anchor = BOTTOM);
                     }
 
-                    // Positive-Locking Cantilever Clasp on +Y Edge of Lid
-                    if (latch_type == "snap_lip") {
-                        arm_base_z = max(1.0, H_lid - 5.0);
-                        arm_top_z  = H_lid + catch_offset_from_rim + 2.2;
-                        arm_thick  = 2.2;
-                        gap_clear  = printer_slop + 0.10;
-
-                        hull() {
-                            translate([0, D/2 - T/2, arm_base_z])
-                                cuboid([clasp_w, T, H_lid - arm_base_z], anchor = BOTTOM);
-                            translate([0, D/2 + gap_clear + arm_thick/2, H_lid - 2.0])
-                                cuboid([clasp_w, arm_thick, 2.0], anchor = BOTTOM);
-                        }
-                        translate([0, D/2 + gap_clear + arm_thick/2, H_lid - 2.0])
-                            cuboid([clasp_w, arm_thick, (arm_top_z - H_lid) + 2.0], rounding = 1.0, edges = "Z", anchor = BOTTOM);
-
-                        translate([0, D/2 + gap_clear, H_lid + catch_offset_from_rim])
-                        rotate([0, 90, 0])
-                        linear_extrude(height = clasp_w - 2, center = true)
-                            polygon([
-                                [-1.2, 0],
-                                [ 0.4, -1.45],
-                                [ 2.2, 0],
-                                [ 2.2, arm_thick + 1.2],
-                                [-1.2, arm_thick]
-                            ]);
-                    } else if (latch_type == "lug_m3") {
-                        translate([0, D/2 + 4, H_lid - 6])
-                            cuboid([18, 8, 6], rounding = 2, edges = "Z", anchor = BOTTOM);
-                    }
+                    // =========================================================
+                    // HEAVY-DUTY RIBBED FRICTION TAB ON LID FRONT WALL (+Y)
+                    // =========================================================
+                    // Why this tab won't break:
+                    // 1. Thick 3.4mm main beam with a massive 5.2mm gusseted base transition (Z = 0..H_slim)
+                    //    that spreads bending stress down the entire 8mm front wall of the lid.
+                    // 2. Instead of a deep single hook that forces the plastic past its yield point,
+                    //    it uses 3 rounded horizontal friction ribs (`Z = H_slim + 2.8, 4.0, 5.2`)
+                    //    that rake across the Base's 5 washboard ridges with only ~0.6mm of elastic flex!
+                    // 3. Includes an angled outward thumb-pry lip at the top (`Z = H_slim + 7.8`) for easy opening.
+                    translate([0, D/2, 0])
+                    rotate([0, 90, 0])
+                    linear_extrude(height = tab_w - 0.6, center = true)
+                        polygon([
+                            // Note: After rotate([0,90,0]), Polygon X = -Z (height from bed), Polygon Y = +Y (projection forward from D/2)
+                            [  0.0,   -T + 0.2],         // Anchored inside Lid front wall at Z = 0
+                            [  0.0,    2.2],             // Chamfered bottom edge on print bed
+                            [ -2.2,    tab_t + 0.5],     // Wide 5.2mm root reinforcement gusset along outer face
+                            [ -H_slim, tab_t + 0.5],     // Full thickness at Lid rim plane (Z = 8.0mm)
+                            [-(H_slim + 5.8), tab_t + 0.3], // Outer face of friction tab
+                            [-(H_slim + 7.6), tab_t + 1.8], // Flared outward thumb-lift lip for easy opening!
+                            [-(H_slim + 8.2), tab_t + 0.8], // Top tip of thumb lip
+                            [-(H_slim + 6.4), 0.75],     // Angled entry bevel on inside of tab tip
+                            // 3 Interlocking Washboard Friction Teeth along the inside of the tab (`Z = H_slim + 2.6..5.6`):
+                            [-(H_slim + 5.6), 0.25],     // Valley 3
+                            [-(H_slim + 5.0), 0.25 - bite * 0.85], // Tooth 3 crest (grips Base washboard!)
+                            [-(H_slim + 4.4), 0.25],     // Valley 2
+                            [-(H_slim + 3.8), 0.25 - bite],        // Tooth 2 main crest
+                            [-(H_slim + 3.2), 0.25],     // Valley 1
+                            [-(H_slim + 2.6), 0.25 - bite * 0.85], // Tooth 1 crest
+                            [-(H_slim + 1.8), 0.35],     // Smooth root relief curve at Lid rim (prevents stress concentration at Z = H_slim!)
+                            [ -H_slim,       -0.2],      // Meets Lid rim smoothly
+                            [ -H_slim,       -T + 0.2]   // Anchored inside Lid wall
+                        ]);
                 }
 
-                // CLEARANCE FIX 1 (LID): Carve cylindrical swing pockets on Left & Right of the Lid's rear rim where the Base's outer knuckles sit!
-                // Without these two pockets, the Lid's rear wall hits the Base's 45° knuckle support webs before reaching 0° closed!
+                // Left & Right Swing-Clearance Pockets on Lid Rear Rim
                 for (side = [-1, 1]) {
-                    kx = side * (seg_len + printer_slop * 1.5);
-                    translate([kx, -D/2 - hinge_r, H_lid])
+                    kx = side * (seg_len + pip_gap * 1.5);
+                    translate([kx, -D/2 - hinge_r, H_slim])
                         rotate([0, 90, 0])
-                            cylinder(r = hinge_r + swing_clear, h = seg_len + printer_slop * 2.5, center = true);
-                    translate([kx, -D/2, H_lid])
+                            cylinder(r = hinge_r + swing_cl, h = seg_len + pip_gap * 2.5, center = true);
+                    translate([kx, -D/2, H_slim])
                         rotate([45, 0, 0])
-                            cuboid([seg_len + printer_slop * 2.5, 1.4, 1.4], center = true);
+                            cuboid([seg_len + pip_gap * 2.5, 1.4, 1.4], center = true);
                 }
 
-                // Original Snap-Together Detent Sockets + Lead-in Ramp + Center Flex Slot
-                stud_h = hinge_r * 0.48 + printer_slop;
+                // Snap-Together Detent Sockets + Lead-in Ramp + Center Flex Slot
+                stud_h = hinge_r * 0.52 + pip_gap;
                 for (side = [-1, 1]) {
-                    translate([side * (seg_len/2), -D/2 - hinge_r, H_lid])
+                    translate([side * (seg_len/2), -D/2 - hinge_r, H_slim])
                         rotate([0, side < 0 ? 90 : -90, 0])
-                            cylinder(r1 = hinge_r * 0.52 + printer_slop * 1.1, r2 = hinge_r * 0.25 + printer_slop, h = stud_h);
+                            cylinder(r1 = hinge_r * 0.55 + pip_gap * 1.1, r2 = hinge_r * 0.28 + pip_gap, h = stud_h);
 
                     hull() {
-                        translate([side * (seg_len/2), -D/2 - hinge_r, H_lid])
+                        translate([side * (seg_len/2), -D/2 - hinge_r, H_slim])
                             rotate([0, side < 0 ? 90 : -90, 0])
-                                cylinder(r1 = hinge_r * 0.44, r2 = hinge_r * 0.20, h = stud_h * 0.72);
-                        translate([side * (seg_len/2), -D/2 - hinge_r, H_lid + hinge_r + 1])
+                                cylinder(r1 = hinge_r * 0.45, r2 = hinge_r * 0.22, h = stud_h * 0.72);
+                        translate([side * (seg_len/2), -D/2 - hinge_r, H_slim + hinge_r + 1])
                             rotate([0, side < 0 ? 90 : -90, 0])
-                                cylinder(r1 = hinge_r * 0.50, r2 = hinge_r * 0.25, h = stud_h * 0.80);
+                                cylinder(r1 = hinge_r * 0.52, r2 = hinge_r * 0.26, h = stud_h * 0.80);
                     }
                 }
-                translate([0, -D/2 - hinge_r, H_lid])
+                translate([0, -D/2 - hinge_r, H_slim])
                     cuboid([1.2, hinge_r * 2.2, hinge_r * 2.4], center = true);
-
-                if (latch_type == "lug_m3") {
-                    translate([0, D/2 + 4, H_lid - 7])
-                        cylinder(d = 3.2, h = 10, anchor = BOTTOM);
-                }
             }
         }
     }
 
 } else if (box_style == "slide_box") {
-    // =========================================================================
-    // SLIDE-ON DOVETAIL TRACK UTILITY CASE (FLUSH OUTER WALLS + ANTI-MIX SEAL)
-    // =========================================================================
     rail_h     = 4.2;
     lid_plate  = max(2.2, T);
     skirt_w    = max(2.2, T * 0.95);
@@ -518,7 +633,7 @@ if (box_style == "organizer_tray") {
     slop       = printer_slop;
     rim_wall   = T + skirt_w + dove_depth * 0.6;
 
-    echo(str("[SPEC] Slide-Track Case: ", W, "×", D, "×", H_base + lid_plate, " mm  |  45° Dovetail Track + Flush Anti-Mix Seal  |  Clearance: ", slop, " mm"));
+    echo(str("[SPEC] Slide-Track Case: ", W, "×", D, "×", H_base + lid_plate, " mm  |  45° Dovetail Track  |  Lid Cutout: ", lid_label_mode));
 
     if (render_part == "both" || render_part == "base") {
         base_y = (render_part == "both") ? -(D/2 + 8) : 0;
@@ -556,7 +671,8 @@ if (box_style == "organizer_tray") {
         lid_y = (render_part == "both") ? (D/2 + 8) : 0;
         total_lid_z = lid_plate + rail_h;
 
-        translate([0, lid_y, 0]) {
+        translate([0, lid_y, 0])
+        apply_lid_inlay(W, D) {
             difference() {
                 cuboid([W, D, total_lid_z], rounding = R, edges = "Z", anchor = BOTTOM);
 
@@ -575,7 +691,7 @@ if (box_style == "organizer_tray") {
                 translate([-W/2 - 0.1, 0, lid_plate + rail_h/2])
                     cuboid([3.0, D - 2*skirt_w + 1.6, rail_h + 1], chamfer = 1.2, anchor = CENTER);
 
-                if (thumb_grip) {
+                if (thumb_grip && lid_label_mode == "none") {
                     for (gx = [W/2 - 12, W/2 - 17, W/2 - 22]) {
                         translate([gx, 0, 0])
                             rotate([90, 0, 0])
