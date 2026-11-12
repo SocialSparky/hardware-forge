@@ -2,6 +2,14 @@
 
 All notable changes to **Hardware Forge** are documented in this file.
 
+## [v1.2.1] - 2026-11-12
+### Added & Fixed
+- **Universal 9-Category 2D Interactive Schematic Suite (`box_designer.js`):** Self-initializing DOM `MutationObserver` hooks providing live 2D blueprints and interactive sliders across Boxes (`06`), Fasteners (`01`), Standoffs (`04`), Clamps (`07`), Brackets (`08`), Knobs (`09`), Enclosures (`10`), Gauges (`11`), and Gaskets (`12`).
+- **Slide-On Dovetail Track Cover Box (`06_boxes_organizers.scad`):** Added `slide_box` container style featuring 45° self-supporting dovetail rails, positive detent click-lock bumps, thumb-push grip grooves, and flush anti-mix compartment sealing.
+- **Zero-Fulcrum Hinged Case Clearances & Anti-Mix Lid Dividers (`06_boxes_organizers.scad`):** Added Y-mirrored compartment dividers inside the hinged lid (`flush_seal`) and carved opposing knuckle swing-clearance pockets into the rear walls while keeping the inward snap-locking cones 100% intact.
+- **Balanced Thread Fit & Clamp Hardware Replacement Modes (`01_fasteners.scad`, `07_clamps_mounts.scad`):** Tuned `standard` thread bite to smooth hand-threading tolerances and added `Bolt & Nut Only` / `Nut Only` render options to band clamps.
+- **Shop Calibration Gauge 3-Fit Guide (`11_gauges_jigs.scad`):** Added interactive instructions explaining Press-Fit (`.08`), Daily-Driver Thread/Tool Fit (`.12`), and Free-Sliding Fit (`.16+`).
+
 ## [v1.2.0] - 2026-11-11
 ### Added
 - **6 New Hardware Generator Categories (`07` through `12`):**

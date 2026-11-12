@@ -53,7 +53,7 @@ echo(str("[SPEC] Knob/Handle: ", knob_type, "  |  Fastener: ", spec_str, " (", r
 module center_fastener_cut() {
     if (insert_mode == "printed_threads") {
         down(0.1)
-            screw(spec = spec_str, head = "none", length = total_h + 0.2, thread = true, bevel = true, anchor = BOTTOM);
+            screw(spec = spec_str, tolerance = (unit_system == "metric" ? "6h" : "3A"), head = "none", length = total_h + 0.2, thread = true, bevel = true, anchor = BOTTOM);
     } else {
         // Through clearance hole for bolt shaft
         down(0.1)

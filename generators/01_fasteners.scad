@@ -82,6 +82,9 @@ washer_od_mult = 2.2;
 washer_thickness = 1.6;
 
 /* [6. 3D Print Tuning] */
+// Thread Tooth Engagement / Bite [standard:Balanced Smooth Fit (Recommended — Respects Printer Slop!), strong:Extra-Tight Interference Bite (Zero Allowance), loose:Loose Easy-Spin Fit]
+thread_bite = "standard";
+
 // Printer Clearance / Fit Slop [0.08:Tight Fit (0.08 mm), 0.12:Fine PLA Fit (0.12 mm), 0.16:Standard PLA/PETG Fit (0.16 mm), 0.20:Loose / Easy Fit (0.20 mm), 0.25:Heavy Layer Clearance (0.25 mm)]
 printer_slop = 0.16;
 
@@ -100,6 +103,10 @@ spec_str = (unit_system == "metric") ? metric_size : imperial_size;
 base_info = screw_info(spec_str);
 nom_diam = struct_val(base_info, "diameter");
 pitch_val = struct_val(base_info, "pitch");
+ext_tol_tight = (unit_system == "metric") ? "6h" : "3A";
+ext_tol_std   = (unit_system == "metric") ? "6g" : "2A";
+int_tol_tight = (unit_system == "metric") ? "6H" : "3B";
+int_tol_std   = (unit_system == "metric") ? "6G" : "2B";
 
 std_n_info = nut_info(spec_str, shape = "hex", thickness = "normal");
 std_nut_af = struct_val(std_n_info, "width");
@@ -331,34 +338,44 @@ if (part_type == "bolt") {
 
                     // Threaded tip extending exactly `t_len` (6.5mm for M8) above the stop collar so the bolt back is 100% flush with the nut!
                     up(smooth_shoulder_len - embed_overlap)
+                        {
+                            $slop = (thread_bite == "strong") ? (printer_slop * 0.20) : (thread_bite == "loose") ? (printer_slop * 0.85) : (printer_slop * 0.45);
+                            screw(
+                                spec = spec_str,
+                                head = "none",
+                                length = t_len + embed_overlap,
+                                tolerance = (thread_bite == "strong") ? ext_tol_tight : ext_tol_std,
+                                bevel1 = false,
+                                bevel2 = safe_bevel,
+                                anchor = BOTTOM,
+                                orient = UP
+                            );
+                        }
+                } else {
+                    {
+                        $slop = (thread_bite == "strong") ? (printer_slop * 0.20) : (thread_bite == "loose") ? (printer_slop * 0.85) : (printer_slop * 0.45);
                         screw(
                             spec = spec_str,
                             head = "none",
-                            length = t_len + embed_overlap,
-                            bevel1 = false,
-                            bevel2 = safe_bevel,
+                            length = total_shank_len,
+                            tolerance = (thread_bite == "strong") ? ext_tol_tight : ext_tol_std,
+                            bevel = safe_bevel,
                             anchor = BOTTOM,
                             orient = UP
                         );
-                } else {
-                    screw(
-                        spec = spec_str,
-                        head = "none",
-                        length = total_shank_len,
-                        bevel = safe_bevel,
-                        anchor = BOTTOM,
-                        orient = UP
-                    );
+                    }
                 }
             }
         }
         cut_drive_recess();
     }
 } else if (part_type == "rod") {
+    $slop = (thread_bite == "strong") ? (printer_slop * 0.20) : (thread_bite == "loose") ? (printer_slop * 0.85) : (printer_slop * 0.45);
     screw(
         spec = spec_str,
         head = "none",
         length = max(0.05, length),
+        tolerance = (thread_bite == "strong") ? ext_tol_tight : ext_tol_std,
         thread = true,
         bevel = safe_bevel,
         anchor = BOTTOM
@@ -380,13 +397,19 @@ if (part_type == "bolt" || part_type == "rod") {
         raw_bolt_or_rod();
     }
 } else if (part_type == "nut") {
+    // CRITICAL 3D PRINT THREAD FIX:
+    // By default, BOSL2 applies a loose ISO '6G' metal tolerance PLUS 4 * $slop to the internal nut bore,
+    // which widens an M5 nut's minor diameter by >0.7mm and leaves almost zero tooth overlap!
+    // Setting tolerance="tight" and scaling $slop to 0.02mm–0.035mm gives deep, full-engagement threads that never strip!
+    $slop = (thread_bite == "strong") ? (printer_slop * 0.28) : (thread_bite == "loose") ? (printer_slop * 0.85) : (printer_slop * 0.55);
     nut(
         spec = spec_str,
         shape = "hex",
         width = (nut_af_sel == "auto") ? undef : eff_nut_af,
         thickness = (nut_style == "custom") ? custom_nut_height : nut_style,
+        tolerance = (thread_bite == "strong") ? int_tol_tight : int_tol_std,
         bevel = (nut_style == "custom" && custom_nut_height < 1.5) ? false : bevel_ends,
-        ibevel = (nut_inner_bevel == "minimal") ? false : true,
+        ibevel = (nut_inner_bevel == "minimal" || nom_diam <= 8.0) ? false : true,
         anchor = BOTTOM
     );
 } else if (part_type == "washer") {

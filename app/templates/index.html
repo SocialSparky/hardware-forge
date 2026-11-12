@@ -6,7 +6,7 @@
 <script src="/static/js/three.min.js"></script>
 <script src="/static/js/OrbitControls.js"></script>
 <script src="/static/js/STLLoader.js"></script>
-<script src="/static/js/box_designer.js"></script>
+<script src="/static/js/box_designer.js?v=1794460710"></script>
 <style>
   :root {
     --bg: #121418; --panel: #1c2026; --border: #2e3440;
@@ -783,6 +783,7 @@ function setStatus(msg, color = "#e5e7eb") {
 
 async function renderPart() {
   if (!currentGenerator) return;
+  if (typeof syncLayoutSpecToInput === 'function' && currentGenerator.filename === '06_boxes_organizers.scad') syncLayoutSpecToInput(false);
   setStatus("⏳ Rendering 3D geometry...", "#f59e0b");
 
   const payload = {

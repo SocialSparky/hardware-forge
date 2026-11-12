@@ -28,8 +28,8 @@ wall_thick = 2.4;
 // Mounting / Clamping Screw Size [M3:M3 (3.2mm Bore), M4:M4 (4.2mm Bore / #8 Screw), M5:M5 (5.2mm Bore / #10 Screw), M6:M6 (6.3mm Bore / 1/4" Bolt), M8:M8 (8.4mm Bore / 5/16" Bolt)] @show_if(clamp_type=worm_band|saddle_2hole|p_clip_1hole|split_block|snap_clip)
 screw_spec = "M5";
 
-// Include Printed Tightening Bolt & Nut on Build Plate (For Band/Split Clamps) @show_if(clamp_type=worm_band|split_block)
-include_hardware = true;
+// What Parts to Render (For Band Clamps) [all:Clamp + Tightening Bolt & Nut, hw_only:Replacement Bolt & Nut Only (No Clamp!), nut_only:Replacement Hex Nut Only, bolt_only:Replacement Knurled Bolt Only, clamp_only:Clamp Body Only] @show_if(clamp_type=worm_band)
+worm_render_part = "all";
 
 // Countersink Mounting Screw Holes @show_if(clamp_type=saddle_2hole|p_clip_1hole|snap_clip)
 countersink_holes = true;
@@ -86,13 +86,13 @@ module drill_mounting_hole(pos_x, top_y, z_mid, depth_down) {
 }
 
 if (clamp_type == "worm_band") {
-    // Supports BOTH Round Pipe/Hose AND Square/Rectangular Tube!
     flex_t = min(T, max(1.6, min(D, HY) * 0.07));
     gap_span = max(3.5, D * 0.14);
     lug_l = max(12, s_diam * 2.4);
     lug_d = max(10, s_diam * 2.2);
     top_y = HY / 2;
 
+    if (worm_render_part == "all" || worm_render_part == "clamp_only")
     difference() {
         union() {
             linear_extrude(height = W) {
@@ -141,20 +141,28 @@ if (clamp_type == "worm_band") {
                     hexagon(id = nut_af);
     }
 
-    if (include_hardware) {
-        bolt_len = round(gap_span + lug_l * 2 + 6);
-        hw_x = D/2 + lug_l + 16;
+    bolt_len = round(gap_span + lug_l * 2 + 6);
+    hw_x = (worm_render_part == "all") ? (D/2 + lug_l + 16) : 0;
+
+    if (worm_render_part == "all" || worm_render_part == "hw_only" || worm_render_part == "bolt_only") {
         translate([hw_x, 0, 0]) {
             cylinder(d = s_diam * 2.4, h = 6, chamfer = 0.6, anchor = BOTTOM);
             for (a = [0 : 30 : 330])
                 rotate([0, 0, a])
                 translate([s_diam * 1.2, 0, 3])
                     cylinder(d = 1.6, h = 5.2, center = true, $fn = 16);
-            up(6)
-                screw(spec = screw_spec, head = "none", length = bolt_len, bevel = true, anchor = BOTTOM, orient = UP);
+            up(6) {
+                $slop = printer_slop * 0.45;
+                screw(spec = screw_spec, head = "none", length = bolt_len, tolerance = "6g", bevel = true, anchor = BOTTOM, orient = UP);
+            }
         }
-        translate([hw_x, 22, 0])
-            nut(spec = screw_spec, shape = "hex", thickness = "normal", bevel = true, anchor = BOTTOM);
+    }
+    if (worm_render_part == "all" || worm_render_part == "hw_only" || worm_render_part == "nut_only") {
+        nut_y = (worm_render_part == "nut_only") ? 0 : 22;
+        translate([hw_x, nut_y, 0]) {
+            $slop = printer_slop * 0.55;
+            nut(spec = screw_spec, shape = "hex", thickness = "normal", tolerance = "6G", bevel = true, ibevel = false, anchor = BOTTOM);
+        }
     }
 
 } else if (clamp_type == "c_clamp") {

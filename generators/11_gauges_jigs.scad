@@ -15,10 +15,15 @@ v_block_size = 40;
 /* [Hidden] */
 $fn = 64;
 
-echo(str("[SPEC] Shop Tool: ", gauge_type));
+guide_msg = (gauge_type == "tolerance_test")
+    ? "Fit Guide: Tight Push = Press/Nut Traps | Smooth Slide = Threads/Tools/Gears | Zero Drag = Bearings/Drawers"
+    : (gauge_type == "bolt_gauge")
+    ? "Sizer Guide: Push unknown bolts through top holes & test nuts in bottom hex pockets (M3 to M10)"
+    : str("Drill Guide: Place on top of round pipe/rod & drill through center ", drill_hole_d, "mm guide bore");
+
+echo(str("[SPEC] ", gauge_type, "  |  ", guide_msg));
 
 if (gauge_type == "tolerance_test") {
-    // 5-Slot Printer Slop Calibration Block (0.08, 0.12, 0.16, 0.20, 0.25 mm) + Matching Test Plug!
     slops = [0.08, 0.12, 0.16, 0.20, 0.25];
     labels = [".08", ".12", ".16", ".20", ".25"];
     block_l = 95;
@@ -30,21 +35,17 @@ if (gauge_type == "tolerance_test") {
         for (i = [0 : 4]) {
             sx = -36 + i * 18;
             s_val = slops[i];
-            // Top row: 8mm Hex Socket + 2*slop
             translate([sx, 7, -0.1])
                 linear_extrude(height = block_h + 1)
                     hexagon(id = 8.0 + s_val * 2);
-            // Bottom row: 8mm Round Bore + 2*slop
             translate([sx, -6, -0.1])
                 cylinder(d = 8.0 + s_val * 2, h = block_h + 1, anchor = BOTTOM);
-            // Engraved clearance label
             translate([sx, -14, block_h - 0.8])
                 linear_extrude(height = 1.2)
                     text(text = labels[i], size = 3.8, font = "Liberation Sans:style=Bold", halign = "center", valign = "center");
         }
     }
 
-    // Matching Exact 8.00mm Hex + Round Reference Test Peg beside block!
     translate([0, 28, 0]) {
         cuboid([32, 12, 5], rounding = 2, edges = "Z", anchor = BOTTOM);
         translate([-8, 0, 5]) linear_extrude(height = 12) hexagon(id = 8.0);
@@ -52,7 +53,6 @@ if (gauge_type == "tolerance_test") {
     }
 
 } else if (gauge_type == "bolt_gauge") {
-    // Pocket Bolt & Nut Sizer Card (M3, M4, M5, M6, M8, M10)
     sizes = [3.2, 4.2, 5.2, 6.2, 8.2, 10.2];
     hexes = [5.6, 7.1, 8.1, 10.1, 13.1, 16.1];
     names = ["M3", "M4", "M5", "M6", "M8", "M10"];
@@ -73,18 +73,15 @@ if (gauge_type == "tolerance_test") {
     }
 
 } else if (gauge_type == "v_drill_jig") {
-    // 90-Degree Self-Centering V-Block Pipe/Dowels Drill Guide
     vw = max(25, v_block_size);
     vl = vw * 1.35;
     vh = vw * 0.72;
 
     difference() {
         cuboid([vl, vw, vh], rounding = 2, edges = "Z", anchor = BOTTOM);
-        // 90-degree V-channel along X axis on top
         translate([0, 0, vh])
             rotate([45, 0, 0])
                 cuboid([vl + 4, vw * 0.72, vw * 0.72], center = true);
-        // Dead-center vertical drill guide hole + chip relief window
         translate([0, 0, -0.1])
             cylinder(d = drill_hole_d, h = vh + 2, anchor = BOTTOM);
     }

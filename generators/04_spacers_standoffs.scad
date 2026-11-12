@@ -67,10 +67,10 @@ if (spacer_type == "unthreaded_round") {
     difference() {
         cylinder(d = od, h = height, chamfer = 0.5, anchor = BOTTOM);
         down(0.1)
-            screw(spec = spec_str, head = "none", length = height + 0.2, thread = true, bevel = false, anchor = BOTTOM);
+            screw(spec = spec_str, tolerance = (unit_system == "metric" ? "6h" : "3A"), head = "none", length = height + 0.2, thread = true, bevel = false, anchor = BOTTOM);
     }
 } else if (spacer_type == "male_female_hex") {
     nut(spec = spec_str, shape = "hex", width = od, thickness = height, bevel = true, anchor = BOTTOM);
     up(height)
-        screw(spec = spec_str, head = "none", length = stud_length, bevel = true, anchor = BOTTOM);
+        screw(spec = spec_str, tolerance = (unit_system == "metric" ? "6h" : "3A"), head = "none", length = stud_length, bevel = true, anchor = BOTTOM);
 }
