@@ -2,6 +2,11 @@
 
 All notable changes to **Hardware Forge** are documented in this file.
 
+## [v1.2.3] - 2026-11-12
+### Changed & Improved
+- **Recalibrated 5-Level Clasp Tightness (`06_boxes_organizers.scad`):** Removed backing-wall preload and tuned the washboard friction tab beam (`2.8 mm`) with 5 selectable `clasp_bite` settings: `0.15 mm` (Kid-Friendly / Featherlight), `0.25 mm` (Easy Everyday — new default), `0.35 mm` (Medium Snug), `0.45 mm` (Firm Toolbag Grip), and `0.60 mm` (Heavy Duty Lock).
+- **Quick Clasp Tightness UI Control (`box_designer.js`):** Added a quick-access `🔒 Clasp Tightness` selector directly inside the 2D Box & Lid Designer card.
+
 ## [v1.2.2] - 2026-11-12
 ### Added & Improved
 - **Heavy-Duty Washboard Friction Clasp (`06_boxes_organizers.scad`):** Replaced the thin vertical latch with a 3.4 mm gusseted friction tab and 5 interlocking 45° support-free washboard ridges on the base wall, complete with adjustable `clasp_bite` grip tension (`0.45 mm`, `0.65 mm`, `0.85 mm`) and protective side guide cheeks.

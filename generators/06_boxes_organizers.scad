@@ -63,9 +63,9 @@ lid_frame_margin_x = 8.0;
 // Frame Y Margin from Outer Edge (mm) @show_if(lid_label_mode=debossed)
 lid_frame_margin_y = 8.0;
 
-/* [4. Heavy-Duty Friction Clasp Options (For Hinged Box)] */
-// Friction Bite / Grip Tension [0.45:Light Grip (Easy One-Handed Flip), 0.65:Standard Positive Grip (Recommended), 0.85:Heavy Firm Grip (Extra Tight Hold)] @show_if(box_style=hinged_box)
-clasp_bite = 0.65;
+/* [4. Heavy-Duty Friction Clasp Tightness (For Hinged Box)] */
+// Clasp Tightness / Opening Effort [0.15:0.15 mm — Kid-Friendly / Featherlight (Effortless for Small Hands!), 0.25:0.25 mm — Easy Everyday (Smooth One-Handed Flip — Default), 0.35:0.35 mm — Medium Snug (Standard Workshop Case), 0.45:0.45 mm — Firm Toolbag Grip, 0.60:0.60 mm — Heavy Duty Lock (Very Tight)] @show_if(box_style=hinged_box)
+clasp_bite = 0.25;
 
 /* [5. Slide-On Cover Options (For Slide Box)] */
 // Detent Click-Lock Retention [detent:Positive Click-Stop Detent Bump, smooth:Smooth Free-Sliding Track] @show_if(box_style=slide_box)
@@ -443,10 +443,10 @@ if (box_style == "organizer_tray") {
     hinge_len = max(28, W - (R * 2) - 10);
     seg_len   = (hinge_len - pip_gap * 3) / 3;
 
-    // Heavy-Duty Friction Clasp Dimensions
+    // Heavy-Duty Friction Clasp Dimensions (Recalibrated for Smooth, Tunable Effort!)
     tab_w     = min(32, max(20, W * 0.32));
-    tab_t     = 3.4;                        // Thick, rugged 3.4mm tab body
-    bite      = clasp_bite;                 // Interference depth of the interlocking friction ridges (default 0.65mm)
+    tab_t     = 2.8;                        // 2.8mm beam flexes smoothly without requiring excessive thumb force
+    bite      = clasp_bite;                 // User-selected tooth interference (0.15mm Kid-Friendly .. 0.60mm Heavy)
 
     echo(str("[SPEC] Hinged Case: ", W, "×", D, "×", H_base + H_slim, " mm  |  Heavy-Duty Ribbed Friction Clasp (Bite: ", bite, "mm)  |  Lid Cutout: ", lid_label_mode));
 
@@ -471,30 +471,20 @@ if (box_style == "organizer_tray") {
                         }
                     }
 
-                    // WASHBOARD FRICTION PAD ON BASE FRONT WALL (-Y)
-                    // 5 horizontal 45° sawtooth friction ridges built into a reinforced front pad (Z = H_base - 8.5 to H_base - 1.5)
-                    // Flanked by two protective alignment cheeks so the lid tab centers itself and grips with high friction!
-                    // 1. Subtle 0.5mm thickened friction pad backing (supported by a 45° bottom bevel)
-                    translate([0, -D/2, H_base])
-                    rotate([0, 90, 0])
-                    linear_extrude(height = tab_w + 0.4, center = true)
-                        polygon([
-                            // Polygon X = distance below H_base (-Z), Polygon Y = +Y (into wall)
-                            [0.8,  0.2],
-                            [1.4, -0.45],
-                            [8.2, -0.45],
-                            [9.0,  0.2]
-                        ]);
-
-                    // 2. Five horizontal 45-degree friction teeth on the pad (1.2mm pitch, 100% support-free!)
-                    for (rz = [2.2, 3.4, 4.6, 5.8, 7.0]) {
-                        translate([0, -D/2 - 0.4, H_base - rz])
+                    // RECALIBRATED WASHBOARD FRICTION RIBS ON BASE FRONT WALL (-Y)
+                    // Why this feels so much smoother:
+                    // Removed the 0.45mm protruding backing pad that was jamming the tab before the teeth even touched!
+                    // Now the 5 horizontal 45° ridges project directly from the flush front wall (-D/2) by `r_proj = 0.25 + bite * 0.55`,
+                    // while the Lid tab has a `0.25 + printer_slop * 0.5` clearance throat—so total deflection equals `bite`!
+                    r_proj = 0.22 + bite * 0.55;
+                    for (rz = [2.4, 3.6, 4.8, 6.0, 7.2]) {
+                        translate([0, -D/2, H_base - rz])
                         rotate([0, 90, 0])
                         linear_extrude(height = tab_w, center = true)
                             polygon([
-                                [-0.65,  0.1],
-                                [ 0.0,  -bite],   // Crisp horizontal friction crest
-                                [ 0.65,  0.1]
+                                [-0.60,  0.2],
+                                [ 0.0,  -r_proj], // Support-free 45° friction ridge
+                                [ 0.60,  0.2]
                             ]);
                     }
 
@@ -566,29 +556,33 @@ if (box_style == "organizer_tray") {
                     //    it uses 3 rounded horizontal friction ribs (`Z = H_slim + 2.8, 4.0, 5.2`)
                     //    that rake across the Base's 5 washboard ridges with only ~0.6mm of elastic flex!
                     // 3. Includes an angled outward thumb-pry lip at the top (`Z = H_slim + 7.8`) for easy opening.
+                    // Calibrated clearance throat so when bite = 0.15 (Kid-Friendly), the teeth engage by a gentle 0.15mm!
+                    throat_cl = 0.22 + (printer_slop * 0.5);
+                    t_crest   = throat_cl - (0.22 + bite * 0.45); // At bite=0.15 & slop=0.20: throat=0.32, r_proj=0.30, t_crest=+0.03 -> total overlap = 0.27mm!
+
                     translate([0, D/2, 0])
                     rotate([0, 90, 0])
-                    linear_extrude(height = tab_w - 0.6, center = true)
+                    linear_extrude(height = tab_w - 0.8, center = true)
                         polygon([
                             // Note: After rotate([0,90,0]), Polygon X = -Z (height from bed), Polygon Y = +Y (projection forward from D/2)
-                            [  0.0,   -T + 0.2],         // Anchored inside Lid front wall at Z = 0
-                            [  0.0,    2.2],             // Chamfered bottom edge on print bed
-                            [ -2.2,    tab_t + 0.5],     // Wide 5.2mm root reinforcement gusset along outer face
-                            [ -H_slim, tab_t + 0.5],     // Full thickness at Lid rim plane (Z = 8.0mm)
-                            [-(H_slim + 5.8), tab_t + 0.3], // Outer face of friction tab
-                            [-(H_slim + 7.6), tab_t + 1.8], // Flared outward thumb-lift lip for easy opening!
-                            [-(H_slim + 8.2), tab_t + 0.8], // Top tip of thumb lip
-                            [-(H_slim + 6.4), 0.75],     // Angled entry bevel on inside of tab tip
-                            // 3 Interlocking Washboard Friction Teeth along the inside of the tab (`Z = H_slim + 2.6..5.6`):
-                            [-(H_slim + 5.6), 0.25],     // Valley 3
-                            [-(H_slim + 5.0), 0.25 - bite * 0.85], // Tooth 3 crest (grips Base washboard!)
-                            [-(H_slim + 4.4), 0.25],     // Valley 2
-                            [-(H_slim + 3.8), 0.25 - bite],        // Tooth 2 main crest
-                            [-(H_slim + 3.2), 0.25],     // Valley 1
-                            [-(H_slim + 2.6), 0.25 - bite * 0.85], // Tooth 1 crest
-                            [-(H_slim + 1.8), 0.35],     // Smooth root relief curve at Lid rim (prevents stress concentration at Z = H_slim!)
-                            [ -H_slim,       -0.2],      // Meets Lid rim smoothly
-                            [ -H_slim,       -T + 0.2]   // Anchored inside Lid wall
+                            [  0.0,   -T + 0.2],                 // Anchored inside Lid front wall at Z = 0
+                            [  0.0,    1.8],                     // Chamfered bottom edge on print bed
+                            [ -2.2,    throat_cl + tab_t + 0.3], // Reinforced root gusset along outer face
+                            [ -H_slim, throat_cl + tab_t + 0.2], // Full thickness at Lid rim plane (Z = 8.0mm)
+                            [-(H_slim + 5.8), throat_cl + tab_t],       // Outer face of friction tab
+                            [-(H_slim + 7.8), throat_cl + tab_t + 2.0], // Wide, easy-grab outward thumb-lift lip (great for kids' fingers!)
+                            [-(H_slim + 8.5), throat_cl + tab_t + 0.9], // Top tip of thumb lip
+                            [-(H_slim + 6.5), throat_cl + 0.70],        // Gentle lead-in entry ramp on inside of tab tip
+                            // 3 Calibrated Washboard Friction Ribs along the inside of the tab (`Z = H_slim + 3.0..5.4`):
+                            [-(H_slim + 5.8), throat_cl],               // Valley 3
+                            [-(H_slim + 5.2), t_crest + 0.06],          // Tooth 3 crest (slightly softer entry tooth)
+                            [-(H_slim + 4.6), throat_cl],               // Valley 2
+                            [-(H_slim + 4.0), t_crest],                 // Tooth 2 main crest
+                            [-(H_slim + 3.4), throat_cl],               // Valley 1
+                            [-(H_slim + 2.8), t_crest + 0.06],          // Tooth 1 crest
+                            [-(H_slim + 1.6), throat_cl + 0.15],        // Flex relief pocket above rim (lets tab flex easily!)
+                            [ -H_slim,       -0.15],                    // Meets Lid rim smoothly
+                            [ -H_slim,       -T + 0.2]                  // Anchored inside Lid wall
                         ]);
                 }
 

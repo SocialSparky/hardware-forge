@@ -443,6 +443,17 @@ function renderBoxDesignerUI() {
 
   if (showLidDesigner) {
     html += '<div id="lid-label-preview-wrap" style="margin-top:' + (showCubbies ? '10px' : '0') + '; padding-top:' + (showCubbies ? '8px' : '0') + '; border-top:' + (showCubbies ? '2px solid rgba(245,158,11,0.45)' : 'none') + ';">' +
+      (boxStyle === "hinged_box" ?
+        '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; padding:5px 8px; background:#0f172a; border:1px solid #10b981; border-radius:5px;">' +
+        '<span style="font-size:0.73rem; color:#6ee7b7; font-weight:700;">🔒 Clasp Tightness:</span>' +
+        '<select style="width:auto; flex:1; margin-left:8px; padding:3px 6px; font-size:0.72rem; background:#1e293b; color:#f8fafc; border:1px solid #10b981; border-radius:4px;" onchange="setParamFromVisual(\'clasp_bite\', this.value)">' +
+        '<option value="0.15"' + (String(vals.clasp_bite)==="0.15"?" selected":"") + '>🧸 0.15 mm — Kid-Friendly (Featherlight)</option>' +
+        '<option value="0.25"' + ((!vals.clasp_bite || String(vals.clasp_bite)==="0.25")?" selected":"") + '>👍 0.25 mm — Easy Everyday (Default)</option>' +
+        '<option value="0.35"' + (String(vals.clasp_bite)==="0.35"?" selected":"") + '>🧰 0.35 mm — Medium Snug</option>' +
+        '<option value="0.45"' + (String(vals.clasp_bite)==="0.45"?" selected":"") + '>🔒 0.45 mm — Firm Toolbag Grip</option>' +
+        '<option value="0.60"' + (String(vals.clasp_bite)==="0.60" || String(vals.clasp_bite)==="0.65"?" selected":"") + '>🏋️ 0.60 mm — Heavy Duty Lock</option>' +
+        '</select></div>' : ''
+      ) +
       '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">' +
       '<span style="font-size:0.74rem; color:#60a5fa; font-weight:700;">🔪 2. 2D Lid Engraved Cutout Designer (Wording & Frame)</span>' +
       '</div>' +
