@@ -38,5 +38,26 @@
       "printer_slop": 0.2
     },
     "items": []
+  },
+  {
+    "name": "Desk Clamp",
+    "preset_type": "part",
+    "generator": "07_clamps_mounts.scad",
+    "params": {
+      "profile_shape": "square",
+      "clamp_type": "worm_band",
+      "round_od": 25.4,
+      "square_width": 40.5,
+      "square_height": 25,
+      "band_width": 8,
+      "wall_thick": 1.6,
+      "screw_spec": "M5",
+      "worm_render_part": "all",
+      "countersink_holes": true,
+      "throat_depth": 20,
+      "c_frame_thick": 12,
+      "printer_slop": 0.16
+    },
+    "items": []
   }
 ]

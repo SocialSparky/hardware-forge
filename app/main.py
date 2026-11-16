@@ -552,30 +552,6 @@ def save_kit_to_library(req: KitRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 # Saved Part & Kit Presets API
-@app.get("/api/presets")
-def get_presets():
-    if not PRESETS_FILE.exists():
-        return []
-    try:
-        return json.loads(PRESETS_FILE.read_text(encoding="utf-8"))
-    except Exception:
-        return []
-
-@app.post("/api/presets")
-def save_preset(req: PresetSaveRequest):
-    presets = get_presets()
-    presets = [p for p in presets if p.get("name") != req.name]
-    presets.append(req.dict())
-    PRESETS_FILE.write_text(json.dumps(presets, indent=2), encoding="utf-8")
-    return {"status": "saved", "presets": presets}
-
-@app.delete("/api/presets/{preset_name}")
-def delete_preset(preset_name: str):
-    presets = [p for p in get_presets() if p.get("name") != preset_name]
-    PRESETS_FILE.write_text(json.dumps(presets, indent=2), encoding="utf-8")
-    return {"status": "deleted", "presets": presets}
-
-# Direct Push to Klipper / Moonraker (FlashForge Creator 5 Pro @ 192.168.86.134)
 @app.post("/api/send_to_moonraker")
 def send_to_moonraker(req: MoonrakerRequest):
     src_file = (OUTPUT_DIR / "kit_multi_object.3mf") if req.mode == "kit" else (OUTPUT_DIR / "preview.stl")
@@ -797,3 +773,60 @@ async def export_multicolor_3mf(req: dict):
         zf.writestr("Metadata/model_settings.config", "\n".join(settings_xml))
 
     return {"url": f"/output/{out_3mf_name}", "filename": out_3mf_name}
+
+
+from fastapi import Request
+
+
+from fastapi import Request
+import json
+
+PRESETS_FILE_PATH = "/app/presets/presets.json"
+
+def _read_presets_disk():
+    os.makedirs(os.path.dirname(PRESETS_FILE_PATH), exist_ok=True)
+    if not os.path.exists(PRESETS_FILE_PATH):
+        return {}
+    try:
+        with open(PRESETS_FILE_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            return data if isinstance(data, dict) else {}
+    except Exception as e:
+        print("Error reading presets.json:", e)
+        return {}
+
+def _write_presets_disk(data):
+    os.makedirs(os.path.dirname(PRESETS_FILE_PATH), exist_ok=True)
+    with open(PRESETS_FILE_PATH, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+
+@app.get("/api/presets")
+async def get_presets_clean():
+    return _read_presets_disk()
+
+@app.post("/api/presets")
+async def save_preset_clean(request: Request):
+    body = await request.json()
+    name = str(body.get("name", "")).strip()
+    if not name:
+        return {"status": "error", "message": "Missing preset name"}
+    existing = _read_presets_disk()
+    existing[name] = {
+        "name": name,
+        "generator": body.get("generator", ""),
+        "generator_idx": body.get("generator_idx", ""),
+        "params": body.get("params", {}),
+        "dom_snapshot": body.get("dom_snapshot", {}),
+        "ui_state": body.get("ui_state", {})
+    }
+    _write_presets_disk(existing)
+    return {"status": "ok", "name": name, "presets": existing}
+
+@app.delete("/api/presets/{preset_name}")
+async def delete_preset_clean(preset_name: str):
+    existing = _read_presets_disk()
+    if preset_name in existing:
+        del existing[preset_name]
+        _write_presets_disk(existing)
+    return {"status": "ok", "presets": existing}
+

@@ -2,6 +2,22 @@
 
 All notable changes to **Hardware Forge** are documented in this file.
 
+## [v1.3.0] - 2026-11-16
+### Added
+- **7 New Parametric Generator Categories (`13`–`19`):**
+  - `13_fan_louver_grill.scad`: Parametric louvered fan grill and vent hood (40 mm–140 mm standard fan frames or custom dimensions).
+  - `14_desk_cable_grommet.scad`: Flanged desk cable grommet ring, round/slot/comb/solid cap, and optional 4-fin press-fit retainer ring.
+  - `15_slotted_cable_duct.scad`: Slotted finger wiring duct, snap-on lid, zip-tie floor arches, and interlocking bowtie splice keys.
+  - `16_plant_pot_grid.scad`: Split-sector plant pot soil cover grid with honeycomb, gyroid, hex, round, slot, and radial slit patterns plus optional rim pegs.
+  - `17_cabinet_shelf_pin.scad`: Side-printed crush-ribbed cabinet shelf support pin with batch quantity layout.
+  - `18_bottle_syringe_clip.scad`: Grip-nub medicine bottle and dual syringe clip holder.
+  - `19_gusset_l_bracket.scad`: Minkowski-rounded gusseted L-bracket with countersunk mounting holes.
+- **Split & Fold Bolt Engine (`01_fasteners.scad`, `07_clamps_mounts.scad`):** Integrated flat-printed Split & Fold living-hinge bolts and coarse print-thread nuts (M3–M24), restored knurled thumb heads for round clamps, auto-locked square clamps to socket heads for corner clearance, and added optional flat-printed installation tools.
+
+### Changed & Fixed
+- **Flag-Free L-Keys with Tactile Metric Notches (`05_install_tools.scad`):** Removed Torx options and side flag tabs on L-keys; added tactile 45° V-notches on metric hex keys (1 notch per mm + half-notch for .5 mm sizes).
+- **Preset Save & Restore Engine (`main.py`, `index.html`, `box_designer.js`):** Removed stale inline script overrides in `index.html` and upgraded `/api/presets` to store lossless DOM snapshots and 2D layout states.
+
 ## [v1.2.3] - 2026-11-12
 ### Changed & Improved
 - **Recalibrated 5-Level Clasp Tightness (`06_boxes_organizers.scad`):** Removed backing-wall preload and tuned the washboard friction tab beam (`2.8 mm`) with 5 selectable `clasp_bite` settings: `0.15 mm` (Kid-Friendly / Featherlight), `0.25 mm` (Easy Everyday — new default), `0.35 mm` (Medium Snug), `0.45 mm` (Firm Toolbag Grip), and `0.60 mm` (Heavy Duty Lock).

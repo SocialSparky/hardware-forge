@@ -134,7 +134,7 @@ function setParamFromVisual(paramName, val) {
 }
 
 function updateMaster2DDesigner(forceReset) {
-  if (typeof refreshPresetDropdownForCurrentCategory === "function") {
+  if (forceReset && typeof refreshPresetDropdownForCurrentCategory === "function") {
     refreshPresetDropdownForCurrentCategory();
   }
   var card = ensureDesignerCard();
@@ -214,7 +214,7 @@ function initOrSyncBoxDesigner(forceReset) {
   var colsChanged = (targetCols !== boxLayoutState.lastColsParam);
   var rowsChanged = (defaultRows !== boxLayoutState.lastRowsParam);
 
-  if (forceReset || boxLayoutState.colWidths.length !== targetCols || colsChanged || rowsChanged) {
+  if (!window.isRestoringPreset && (forceReset || boxLayoutState.colWidths.length !== targetCols || colsChanged || rowsChanged)) {
     boxLayoutState.lastColsParam = targetCols;
     boxLayoutState.lastRowsParam = defaultRows;
     var availW = Math.max(targetCols * 4, boxLayoutState.innerW - (targetCols - 1) * divT);
@@ -1082,42 +1082,21 @@ window.addEventListener("mouseup", function() {
 // ============================================================================
 function renderFastener2D(card, vals) {
   card.style.display = "block";
-  var pType = vals.part_type || "bolt";
-  var spec = (vals.unit_system === "imperial") ? (vals.imperial_size || "1/4-20") : (vals.metric_size || "M8");
-  var cov = vals.thread_coverage || "partial_grip";
-  var gripL = parseFloat(vals.shoulder_grip_len) || 21;
-  var totalL = parseFloat(vals.length) || 25;
-  var slop = parseFloat(vals.printer_slop) || 0.12;
+  var bStyle = vals.bolt_style || "split";
+  var spec = vals.size || "M8";
+  var hType = vals.head_type || "hex";
+  var totalL = parseFloat(vals.bolt_length) || 30;
+  var tweak = parseFloat(vals.clearance_tweak) || 0;
+  var incTool = Boolean(vals.include_tool === true || String(vals.include_tool) === "true");
+  var toolName = (hType === "socket") ? ("Matching " + spec + " Allen Key") : ("Matching " + spec + " Hex Wrench");
 
-  card.innerHTML = '<div style="margin-bottom:5px; color:#60a5fa;"><strong>📐 2D Fastener Profile & Grip Schematic (' + spec + ' ' + pType.toUpperCase() + ')</strong></div>' +
-    '<canvas id="fastener-canvas" width="376" height="115" style="width:100%; height:115px; background:#0f172a; border:1px solid #3b82f6; border-radius:6px; display:block; margin-bottom:7px;"></canvas>' +
-    (pType === "bolt" && cov === "partial_grip" ?
-      '<div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;"><span style="font-size:0.72rem; color:#93c5fd; width:115px;">Unthreaded Grip: <strong>' + gripL + 'mm</strong></span><input type="range" min="4" max="80" step="0.5" value="' + gripL + '" style="flex:1; accent-color:#3b82f6;" oninput="setParamFromVisual(\'shoulder_grip_len\', this.value)"></div>' :
-      (pType === "bolt" || pType === "rod") ?
-      '<div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;"><span style="font-size:0.72rem; color:#93c5fd; width:115px;">Total Length: <strong>' + totalL + 'mm</strong></span><input type="range" min="6" max="120" step="1" value="' + totalL + '" style="flex:1; accent-color:#3b82f6;" oninput="setParamFromVisual(\'length\', this.value)"></div>' : ''
-    ) +
-    '<div style="display:flex; align-items:center; gap:6px;"><span style="font-size:0.72rem; color:#6ee7b7; width:115px;">Fit Slop: <strong>' + slop + 'mm</strong></span><input type="range" min="0.08" max="0.25" step="0.02" value="' + slop + '" style="flex:1; accent-color:#10b981;" oninput="setParamFromVisual(\'printer_slop\', this.value)"></div>';
-
-  var cvs = document.getElementById("fastener-canvas");
-  if (!cvs) return;
-  var ctx = cvs.getContext("2d");
-  ctx.clearRect(0, 0, cvs.width, cvs.height);
-  var cy = cvs.height / 2;
-  if (pType === "bolt") {
-    var headW = 34, headH = 44;
-    var shL = (cov === "partial_grip") ? Math.min(170, gripL * 4.5) : (cov === "full" ? 0 : 90);
-    var thL = (cov === "partial_grip") ? 55 : (cov === "full" ? 180 : 80);
-    ctx.fillStyle = "#334155"; ctx.strokeStyle = "#94a3b8"; ctx.lineWidth = 2;
-    ctx.fillRect(22, cy - headH/2, headW, headH); ctx.strokeRect(22, cy - headH/2, headW, headH);
-    if (shL > 0) {
-      ctx.fillStyle = "rgba(59, 130, 246, 0.35)"; ctx.strokeStyle = "#60a5fa";
-      ctx.fillRect(22 + headW, cy - 13, shL, 26); ctx.strokeRect(22 + headW, cy - 13, shL, 26);
-      ctx.fillStyle = "#f59e0b"; ctx.fillRect(22 + headW + shL - 4, cy - 16, 4, 32);
-    }
-    var tx0 = 22 + headW + shL;
-    ctx.fillStyle = "rgba(16, 185, 129, 0.3)"; ctx.strokeStyle = "#10b981";
-    ctx.fillRect(tx0, cy - 12, thL, 24); ctx.strokeRect(tx0, cy - 12, thL, 24);
-  }
+  card.innerHTML = '<div style="margin-bottom:5px; color:#60a5fa;"><strong>📐 Split & Fold Fastener (' + spec + ' × ' + totalL + 'mm — ' + hType.toUpperCase() + ' Head)</strong></div>' +
+    '<div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;"><span style="font-size:0.72rem; color:#93c5fd; width:125px;">Shank Length: <strong>' + totalL + 'mm</strong></span><input type="range" min="10" max="100" step="1" value="' + totalL + '" style="flex:1; accent-color:#3b82f6;" oninput="setParamFromVisual(\'bolt_length\', this.value)"></div>' +
+    '<div style="display:flex; align-items:center; gap:6px; margin-bottom:5px;"><span style="font-size:0.72rem; color:#6ee7b7; width:125px;">Fit Tweak: <strong>' + (tweak >= 0 ? "+" : "") + tweak + 'mm</strong></span><input type="range" min="-0.15" max="0.20" step="0.05" value="' + tweak + '" style="flex:1; accent-color:#10b981;" oninput="setParamFromVisual(\'clearance_tweak\', this.value)"></div>' +
+    '<label style="display:flex; align-items:center; gap:6px; padding:4px 8px; background:#0f172a; border:1px solid #3b82f6; border-radius:4px; cursor:pointer; font-size:0.71rem; color:#93c5fd;">' +
+    '<input type="checkbox" ' + (incTool ? 'checked' : '') + ' onchange="var el=ensureParamInputExists(\'include_tool\', false); if(el.type===\'checkbox\'){el.checked=this.checked;}else{el.value=String(this.checked);} updateMaster2DDesigner(false); if(document.getElementById(\'auto-render\')&&document.getElementById(\'auto-render\').checked) renderPart();">' +
+    '<span>🛠️ <strong>Print ' + toolName + ' on Plate</strong> (Optional Installation Tool)</span>' +
+    '</label>';
 }
 
 function renderSpacer2D(card, vals) {
@@ -1134,14 +1113,38 @@ function renderSpacer2D(card, vals) {
 function renderClamp2D(card, vals) {
   card.style.display = "block";
   var shape = vals.profile_shape || "round";
+  var cType = vals.clamp_type || "worm_band";
   var D = (shape === "square") ? (parseFloat(vals.square_width) || 25.4) : (parseFloat(vals.round_od) || 25.4);
   var W = parseFloat(vals.band_width) || 14;
   var paramKey = (shape === "square") ? "square_width" : "round_od";
+  var incTool = Boolean(vals.include_tool === true || String(vals.include_tool) === "true");
+  var hType = (shape === "square") ? "socket" : (vals.head_type || "knurled");
+  var toolLabel = (hType === "socket") ? "Allen Hex Key" : "Hex Wrench";
+
+  // If Square Clamp is active, hide head_type in the sidebar and ensure socket head is used
+  var headWrap = document.getElementById("wrap-head_type");
+  if (headWrap) {
+    headWrap.style.display = (shape === "square" || cType !== "worm_band") ? "none" : "block";
+  }
+
+  var extraControls = "";
+  if (cType === "worm_band" && vals.worm_fastener_type !== "ratchet_zip") {
+    if (shape === "square") {
+      extraControls += '<div style="margin-top:6px; padding:4px 8px; background:rgba(30,41,59,0.9); border-left:3px solid #f59e0b; border-radius:4px; font-size:0.69rem; color:#fcd34d;">' +
+        '🔒 <strong>Square Corner Clearance:</strong> Bolt head auto-locked to <strong>Low-Profile Socket Head (Allen Key)</strong> so it clears the flat square tube shoulder.' +
+        '</div>';
+    }
+    extraControls += '<label style="display:flex; align-items:center; gap:6px; margin-top:6px; padding:4px 8px; background:#0f172a; border:1px solid #3b82f6; border-radius:4px; cursor:pointer; font-size:0.71rem; color:#93c5fd;">' +
+      '<input type="checkbox" ' + (incTool ? 'checked' : '') + ' onchange="var el=ensureParamInputExists(\'include_tool\', false); if(el.type===\'checkbox\'){el.checked=this.checked;}else{el.value=String(this.checked);} updateMaster2DDesigner(false); if(document.getElementById(\'auto-render\')&&document.getElementById(\'auto-render\').checked) renderPart();">' +
+      '<span>🛠️ <strong>Print Matching ' + toolLabel + ' on Plate</strong> (Optional Installation Tool)</span>' +
+      '</label>';
+  }
+
   card.innerHTML = '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;"><strong style="color:#60a5fa;">📐 2D Clamp Profile (' + shape.toUpperCase() + ': ' + D + ' mm)</strong></div>' +
     '<div style="display:flex; gap:8px;">' +
     '<div style="flex:1;"><span style="font-size:0.7rem; color:#93c5fd;">Size: <strong>' + D + ' mm</strong></span><input type="range" min="6" max="75" step="0.5" value="' + D + '" style="width:100%; accent-color:#3b82f6;" oninput="setParamFromVisual(\'' + paramKey + '\', this.value)"></div>' +
     '<div style="flex:1;"><span style="font-size:0.7rem; color:#6ee7b7;">Band Width: <strong>' + W + ' mm</strong></span><input type="range" min="8" max="35" step="1" value="' + W + '" style="width:100%; accent-color:#10b981;" oninput="setParamFromVisual(\'band_width\', this.value)"></div>' +
-    '</div>';
+    '</div>' + extraControls;
 }
 
 function renderBracket2D(card, vals) {
@@ -1208,96 +1211,65 @@ function renderMultiColor3DOverlays() {}
 // CATEGORY-FILTERED FULL-STATE PRESET SAVE & RESTORE ENGINE
 // ============================================================================
 var allPresetsCache = {};
+window.isRestoringPreset = false;
 
-async function loadPresets() {
-  try {
-    var res = await fetch("/api/presets");
-    allPresetsCache = await res.json();
-    refreshPresetDropdownForCurrentCategory();
-  } catch (e) {
-    console.error("Failed to load presets:", e);
-  }
-}
-
-function refreshPresetDropdownForCurrentCategory() {
-  var sel = document.getElementById("preset-select");
-  if (!sel) return;
-  var curGen = getActiveGeneratorFilename();
-  var catLabel = curGen ? curGen.replace(/^\d+_/, "").replace(".scad", "").replace(/_/g, " ") : "current category";
-
-  var matchingKeys = Object.keys(allPresetsCache).filter(function(name) {
-    var p = allPresetsCache[name];
-    return p && p.generator === curGen;
-  });
-
-  sel.innerHTML = '<option value="">-- Saved in ' + catLabel.toUpperCase() + ' (' + matchingKeys.length + ') --</option>';
-  matchingKeys.sort().forEach(function(name) {
-    var opt = document.createElement("option");
-    opt.value = name;
-    opt.textContent = "⭐ " + name;
-    sel.appendChild(opt);
-  });
-}
-
-window.savePreset = async function() {
-  if (!currentGenerator) return;
-  if (currentGenerator.filename === "06_boxes_organizers.scad") {
-    syncLayoutSpecToInput(false);
-    pushLidStateToDOM();
-  }
-  var defaultName = currentGenerator.name + " - Custom";
-  var name = prompt("Enter a name to save this " + currentGenerator.name + " preset:", defaultName);
-  if (!name || !name.trim()) return;
-
-  var fullParams = collectParams();
-  var uiState = {
-    boxLayoutState: JSON.parse(JSON.stringify(boxLayoutState)),
-    lidState: JSON.parse(JSON.stringify(lidState)),
-    lidPreviewColors: JSON.parse(JSON.stringify(lidPreviewColors))
-  };
-
-  await fetch("/api/presets", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      name: name.trim(),
-      generator: currentGenerator.filename,
-      params: fullParams,
-      ui_state: uiState
-    })
-  });
-
-  await loadPresets();
-  var sel = document.getElementById("preset-select");
-  if (sel) sel.value = name.trim();
-};
-
-window.applyPreset = async function() {
-  var sel = document.getElementById("preset-select");
-  if (!sel || !sel.value) return;
-  var presetName = sel.value;
-  var p = allPresetsCache[presetName];
-  if (!p) return;
-
-  var genSel = document.getElementById("generator-select");
-  if (genSel && getActiveGeneratorFilename() !== p.generator && typeof generators !== "undefined") {
-    var gIdx = generators.findIndex(function(g) { return g.filename === p.generator; });
-    if (gIdx !== -1) {
-      var matchOpt = Array.from(genSel.options).find(function(o) { return o.value === p.generator || o.value === String(gIdx); });
-      if (matchOpt) genSel.value = matchOpt.value;
-      currentGenerator = generators[gIdx];
-      if (typeof buildControls === "function") buildControls(currentGenerator);
+function captureDomSnapshot() {
+  var snap = { selects: {}, customs: {}, units: {}, checks: {}, texts: {} };
+  document.querySelectorAll("#params-container [data-param]").forEach(function(el) {
+    var k = el.getAttribute("data-param");
+    if (!k) return;
+    if (el.tagName === "SELECT") {
+      snap.selects[k] = el.value;
+    } else if (el.type === "checkbox") {
+      snap.checks[k] = el.checked;
+    } else {
+      snap.texts[k] = el.value;
     }
+  });
+  document.querySelectorAll("#params-container [data-custom-for]").forEach(function(el) {
+    snap.customs[el.getAttribute("data-custom-for")] = el.value;
+  });
+  document.querySelectorAll("#params-container [data-unit-for]").forEach(function(el) {
+    snap.units[el.getAttribute("data-unit-for")] = el.value;
+  });
+  return snap;
+}
+
+function restoreDomSnapshot(snap, savedParams) {
+  if (snap && snap.selects && Object.keys(snap.selects).length > 0) {
+    Object.keys(snap.selects).forEach(function(k) {
+      var el = document.querySelector('[data-param="' + k + '"]');
+      if (el && el.tagName === "SELECT") {
+        el.value = snap.selects[k];
+        var cw = document.getElementById("custom-wrap-" + k);
+        if (cw) cw.style.display = (el.value === "__custom__") ? "flex" : "none";
+      }
+    });
+    Object.keys(snap.customs || {}).forEach(function(k) {
+      var cInp = document.querySelector('[data-custom-for="' + k + '"]');
+      if (cInp) cInp.value = snap.customs[k];
+    });
+    Object.keys(snap.units || {}).forEach(function(k) {
+      var uSel = document.querySelector('[data-unit-for="' + k + '"]');
+      if (uSel) uSel.value = snap.units[k];
+    });
+    Object.keys(snap.checks || {}).forEach(function(k) {
+      var chk = document.querySelector('[data-param="' + k + '"]');
+      if (chk && chk.type === "checkbox") chk.checked = Boolean(snap.checks[k]);
+    });
+    Object.keys(snap.texts || {}).forEach(function(k) {
+      var tEl = ensureParamInputExists(k, snap.texts[k]);
+      if (tEl && tEl.tagName !== "SELECT" && tEl.type !== "checkbox") tEl.value = snap.texts[k];
+    });
   }
 
-  var savedParams = p.params || {};
-  Object.keys(savedParams).forEach(function(k) {
+  Object.keys(savedParams || {}).forEach(function(k) {
     var val = savedParams[k];
     var el = document.querySelector('[data-param="' + k + '"]');
     if (!el) el = ensureParamInputExists(k, val);
     if (!el) return;
-
     if (el.tagName === "SELECT") {
+      if (snap && snap.selects && snap.selects[k] !== undefined) return;
       var matchOpt = Array.from(el.options).find(function(o) { return String(o.value) === String(val); });
       if (matchOpt) {
         el.value = String(val);
@@ -1310,11 +1282,9 @@ window.applyPreset = async function() {
           var custWrap2 = document.getElementById("custom-wrap-" + k);
           if (custWrap2) custWrap2.style.display = "flex";
           var custInp = document.querySelector('[data-custom-for="' + k + '"]');
-          if (custInp) {
-            custInp.value = String(val);
-            var unitSel = document.querySelector('[data-unit-for="' + k + '"]');
-            if (unitSel) unitSel.value = "mm";
-          }
+          if (custInp) custInp.value = String(val);
+          var unitSel = document.querySelector('[data-unit-for="' + k + '"]');
+          if (unitSel) unitSel.value = "mm";
         }
       }
     } else if (el.type === "checkbox") {
@@ -1323,21 +1293,180 @@ window.applyPreset = async function() {
       el.value = String(val);
     }
   });
+}
 
-  if (p.ui_state) {
-    if (p.ui_state.boxLayoutState) Object.assign(boxLayoutState, JSON.parse(JSON.stringify(p.ui_state.boxLayoutState)));
-    if (p.ui_state.lidState) Object.assign(lidState, JSON.parse(JSON.stringify(p.ui_state.lidState)));
-    if (p.ui_state.lidPreviewColors) Object.assign(lidPreviewColors, JSON.parse(JSON.stringify(p.ui_state.lidPreviewColors)));
+window.loadPresets = async function(keepSelectedName) {
+  try {
+    var res = await fetch("/api/presets?t=" + Date.now());
+    allPresetsCache = await res.json();
+    refreshPresetDropdownForCurrentCategory(keepSelectedName);
+  } catch (e) {
+    console.error("Failed to load presets:", e);
   }
-
-  if (typeof updateVisibility === "function") updateVisibility();
-  updateMaster2DDesigner(false);
-  if (currentGenerator && currentGenerator.filename === "06_boxes_organizers.scad") {
-    syncLayoutSpecToInput(false);
-    pushLidStateToDOM();
-  }
-  await renderPart();
 };
+var loadPresets = window.loadPresets;
+
+function refreshPresetDropdownForCurrentCategory(selectedName) {
+  var sel = document.getElementById("preset-select");
+  if (!sel) return;
+  var prevVal = (selectedName !== undefined) ? selectedName : (sel.value || "");
+  var curGen = getActiveGeneratorFilename();
+  var genSel = document.getElementById("generator-select");
+  var curIdx = genSel ? String(genSel.value) : "";
+  var catLabel = curGen ? curGen.replace(/^\d+_/, "").replace(".scad", "").replace(/_/g, " ") : "current category";
+
+  var matchingKeys = Object.keys(allPresetsCache).filter(function(name) {
+    var p = allPresetsCache[name];
+    if (!p) return false;
+    return (p.generator === curGen) ||
+           (curIdx !== "" && String(p.generator) === curIdx) ||
+           (curIdx !== "" && String(p.generator_idx) === curIdx);
+  });
+
+  sel.innerHTML = '<option value="">-- Saved in ' + catLabel.toUpperCase() + ' (' + matchingKeys.length + ') --</option>';
+  matchingKeys.sort().forEach(function(name) {
+    var opt = document.createElement("option");
+    opt.value = name;
+    opt.textContent = "⭐ " + name;
+    if (name === prevVal) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
+window.savePreset = async function() {
+  try {
+    var curGen = getActiveGeneratorFilename();
+    if (!curGen) return;
+    if (curGen === "06_boxes_organizers.scad") {
+      syncLayoutSpecToInput(false);
+      pushLidStateToDOM();
+    }
+    var genSel = document.getElementById("generator-select");
+    var genIdx = genSel ? String(genSel.value) : "";
+    var optText = (genSel && genSel.options[genSel.selectedIndex]) ? genSel.options[genSel.selectedIndex].textContent.trim() : curGen.replace(".scad", "");
+
+    var name = prompt("Enter a name to save this " + optText + " preset:", optText + " - Custom");
+    if (!name || !name.trim()) return;
+    var cleanName = name.trim();
+
+    var fullParams = (typeof collectParams === "function") ? collectParams() : {};
+    var domSnap = captureDomSnapshot();
+    var uiState = {
+      boxLayoutState: JSON.parse(JSON.stringify(boxLayoutState)),
+      lidState: JSON.parse(JSON.stringify(lidState)),
+      lidPreviewColors: JSON.parse(JSON.stringify(lidPreviewColors))
+    };
+
+    var res = await fetch("/api/presets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: cleanName,
+        generator: curGen,
+        generator_idx: genIdx,
+        params: fullParams,
+        dom_snapshot: domSnap,
+        ui_state: uiState
+      })
+    });
+
+    var data = await res.json();
+    if (res.ok && data.status === "ok") {
+      allPresetsCache = data.presets || allPresetsCache;
+      refreshPresetDropdownForCurrentCategory(cleanName);
+    } else {
+      alert("Failed to save preset: " + JSON.stringify(data));
+    }
+  } catch (err) {
+    console.error("savePreset error:", err);
+    alert("Save error: " + err.message);
+  }
+};
+var savePreset = window.savePreset;
+
+window.applyPreset = async function(explicitName) {
+  var sel = document.getElementById("preset-select");
+  var presetName = explicitName || (sel ? sel.value : "");
+  if (!presetName) return;
+  var p = allPresetsCache[presetName];
+  if (!p) return;
+
+  window.isRestoringPreset = true;
+  try {
+    // 1. Ensure the correct generator is active in index.html
+    var genSel = document.getElementById("generator-select");
+    var curGen = getActiveGeneratorFilename();
+    var targetGen = p.generator;
+
+    if (genSel && targetGen && curGen !== targetGen) {
+      var targetOpt = Array.from(genSel.options).find(function(o) {
+        return o.value === targetGen || (p.generator_idx !== undefined && p.generator_idx !== "" && o.value === String(p.generator_idx));
+      });
+      if (!targetOpt && typeof generators !== "undefined" && Array.isArray(generators)) {
+        var gIdx = generators.findIndex(function(g) { return g.filename === targetGen; });
+        if (gIdx !== -1) {
+          targetOpt = Array.from(genSel.options).find(function(o) { return o.value === String(gIdx) || o.value === generators[gIdx].filename; });
+        }
+      }
+      if (targetOpt && genSel.value !== targetOpt.value) {
+        genSel.value = targetOpt.value;
+        // Trigger index.html's native generator change logic so its lexical `currentGenerator` updates!
+        if (typeof onGeneratorChange === "function") {
+          await onGeneratorChange();
+        } else {
+          genSel.dispatchEvent(new Event("change"));
+        }
+      }
+    }
+
+    // 2. Restore 2D Box Cubby Layout and 2D Lid State
+    if (p.ui_state) {
+      if (p.ui_state.boxLayoutState) {
+        Object.assign(boxLayoutState, JSON.parse(JSON.stringify(p.ui_state.boxLayoutState)));
+      }
+      if (p.ui_state.lidState) {
+        Object.assign(lidState, JSON.parse(JSON.stringify(p.ui_state.lidState)));
+      }
+      if (p.ui_state.lidPreviewColors) {
+        Object.assign(lidPreviewColors, JSON.parse(JSON.stringify(p.ui_state.lidPreviewColors)));
+      }
+    } else if (p.params && p.params.layout_spec) {
+      var tokens = String(p.params.layout_spec).split("|").filter(Boolean);
+      if (tokens.length > 0) {
+        boxLayoutState.colWidths = [];
+        boxLayoutState.colRows = [];
+        tokens.forEach(function(tok) {
+          var parts = tok.split(":");
+          boxLayoutState.colWidths.push(parseFloat(parts[0]) || 25);
+          boxLayoutState.colRows.push((parts[1] || "").split(",").map(function(n) { return parseFloat(n) || 25; }));
+        });
+        boxLayoutState.lastColsParam = tokens.length;
+      }
+    }
+
+    // 3. Restore all DOM controls & custom values
+    restoreDomSnapshot(p.dom_snapshot, p.params);
+
+    if (typeof updateVisibility === "function") updateVisibility();
+
+    var curVals = (typeof collectParams === "function") ? collectParams() : {};
+    boxLayoutState.lastColsParam = Math.max(1, Math.round(parseFloat(curVals.cols) || boxLayoutState.colWidths.length));
+    boxLayoutState.lastRowsParam = Math.max(1, Math.round(parseFloat(curVals.rows) || 2));
+
+    updateMaster2DDesigner(false);
+    if (getActiveGeneratorFilename() === "06_boxes_organizers.scad") {
+      syncLayoutSpecToInput(false);
+      pushLidStateToDOM();
+    }
+    refreshPresetDropdownForCurrentCategory(presetName);
+    if (typeof renderPart === "function") {
+      await renderPart();
+    }
+  } finally {
+    setTimeout(function() { window.isRestoringPreset = false; }, 400);
+  }
+};
+var applyPreset = window.applyPreset;
 
 window.deleteSelectedPreset = async function() {
   var sel = document.getElementById("preset-select");
@@ -1345,10 +1474,9 @@ window.deleteSelectedPreset = async function() {
   var name = sel.value;
   if (!confirm('Delete saved preset "' + name + '"?')) return;
   await fetch("/api/presets/" + encodeURIComponent(name), { method: "DELETE" });
-  await loadPresets();
+  await window.loadPresets("");
 };
 
-// ============================================================================
 // FAILSAFE AUTO-INITIALIZER
 // ============================================================================
 (function attachVisualSuiteHooks() {
@@ -1391,6 +1519,17 @@ window.deleteSelectedPreset = async function() {
     }
 
     var pSel = document.getElementById("preset-select");
+    if (pSel) {
+      pSel.onchange = function() { window.applyPreset(this.value); };
+      // Also bind the Save button next to #preset-select directly to window.savePreset
+      var parentBtns = pSel.parentNode ? pSel.parentNode.querySelectorAll("button") : [];
+      parentBtns.forEach(function(btn) {
+        if (btn.id !== "delete-preset-btn" && (btn.textContent.indexOf("Save") !== -1 || btn.getAttribute("onclick") && btn.getAttribute("onclick").indexOf("savePreset") !== -1)) {
+          btn.removeAttribute("onclick");
+          btn.onclick = function(e) { e.preventDefault(); window.savePreset(); };
+        }
+      });
+    }
     if (pSel && pSel.parentNode && !document.getElementById("delete-preset-btn")) {
       var delBtn = document.createElement("button");
       delBtn.id = "delete-preset-btn";
