@@ -2,6 +2,14 @@
 
 All notable changes to **Hardware Forge** are documented in this file.
 
+## [v1.3.1] - 2026-11-19
+### Added
+- **Parametric Dowel Generator (`20_dowels.scad`):** Flat-printed two-piece split dowels (and one-piece flat-sided option) with metric/imperial presets, tapered crush ribs, fluted glue grooves, and 45° beveled insertion tips.
+- **README Troubleshooting Note (`README.md`):** Documented how to clear Chrome's HTTP LAN download confirmation prompt.
+
+### Changed & Fixed
+- **Render Performance (`17_cabinet_shelf_pin.scad`):** Relaxed `$fs` from `0.05` to `0.15` for significantly faster `minkowski()` rendering in the web UI.
+
 ## [v1.3.0] - 2026-11-16
 ### Added
 - **7 New Parametric Generator Categories (`13`–`19`):**

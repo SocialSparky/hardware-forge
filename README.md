@@ -20,3 +20,10 @@ A 100% offline, self-hosted Docker web application for generating parametric 3D-
 - **Interactive 2D Visual Schematic Designers:** Drag-and-slide 2D layout canvases for variable box/drawer cubbies, structural brackets, and electronics enclosures.
 - **Build Plate Kit Cart & Multi-Object `.3MF` Export:** Queue multiple parts and quantities onto an auto-arranged build plate and export as a **Multi-Object `.3MF`** (keeping every part individually selectable in OrcaSlicer), combined `.STL`, or `.ZIP` bundle.
 - **One-Click Slicer Launch & 3D Cutaway X-Ray:** Launch kits or single parts straight into OrcaSlicer via native `orcaslicer://` links, save reusable part/kit presets, and inspect internal thread clearances with the live 3D cross-section slider.
+
+## Troubleshooting
+
+### Chrome Asks to "Keep" Before Downloading Files
+When accessing Hardware Forge over plain `http://` on a local network IP (e.g., `http://192.168.x.x`), Chrome flags downloads as insecure by default.
+* **Local Machine:** Access the app via `http://localhost:<port>` instead of your LAN IP (Chrome treats `localhost` as secure).
+* **LAN / Server Access:** Click the **Site Settings** icon in the Chrome address bar, set **Insecure content** to **Allow**, and reload the page—or serve the container over `https://` using a reverse proxy.

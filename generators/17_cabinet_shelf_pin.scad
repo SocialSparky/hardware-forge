@@ -45,7 +45,7 @@ TIP_UNDER = 0.2;
 TIP_CHAMFER = 0.5;
 SINK = 0.5;
 
-$fa = 1; $fs = 0.05;
+$fa = 2; $fs = 0.15;
 
 assert(hole_d + interference <= W - 2, "hole too big for pin width");
 assert(shank_length > RIB_TAPER + TIP_CHAMFER, "shank too short");
